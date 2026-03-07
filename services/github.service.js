@@ -4,12 +4,12 @@ export const fetchGithubProfile = async (username) => {
 
   try {
 
-    // 🔹 Profile
+    // Profile
     const profile = await axios.get(
       `https://api.github.com/users/${username}`
     );
 
-    // 🔹 Repos
+    // Repos
     const repos = await axios.get(
       `https://api.github.com/users/${username}/repos?per_page=100`
     );
@@ -20,7 +20,7 @@ export const fetchGithubProfile = async (username) => {
       totalStars += repo.stargazers_count;
     });
 
-    // 🔹 Contribution graph query
+    // Contribution graph query
     const query = `
     query {
       user(login: "${username}") {

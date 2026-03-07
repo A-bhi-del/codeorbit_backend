@@ -1,33 +1,3 @@
-// import axios from "axios";
-
-// export const fetchLeetCodeProfile = async (username) => {
-//   const query = `
-//     query getUserProfile($username: String!) {
-//       matchedUser(username: $username) {
-//         profile {
-//           aboutMe
-//         }
-//         submitStats {
-//           acSubmissionNum {
-//             difficulty
-//             count
-//           }
-//         }
-//       }
-//     }
-//   `;
-
-//   const { data } = await axios.post(
-//     "https://leetcode.com/graphql",
-//     {
-//       query,
-//       variables: { username }
-//     }
-//   );
-
-//   return data.data.matchedUser;
-// };
-
 import axios from "axios";
 
 export const fetchLeetCodeFullProfile = async (username) => {

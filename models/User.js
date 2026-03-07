@@ -1,81 +1,3 @@
-// import mongoose from "mongoose";
-
-// const leetcodeSchema = new mongoose.Schema(
-//   {
-//     username: {
-//       type: String
-//     },
-
-//     verified: {
-//       type: Boolean,
-//       default: false
-//     },
-
-//     verificationCode: {
-//       type: String
-//     },
-
-//     codeExpiry: {
-//       type: Date
-//     },
-
-//     totalSolved: {
-//       type: Number,
-//       default: 0
-//     },
-
-//     contestRating: {
-//       type: Number,
-//       default: 0
-//     },
-
-//     contestsPlayed: {
-//       type: Number,
-//       default: 0
-//     },
-
-//     totalActiveDays: {
-//       type: Number,
-//       default: 0
-//     },
-
-//     badges: [
-//       {
-//         name: String,
-//         icon: String
-//       }
-//     ],
-
-//     lastUpdated: {
-//       type: Date
-//     }
-//   },
-//   { _id: false } // Important: separate _id create nahi karega
-// );
-
-// const userSchema = new mongoose.Schema(
-//   {
-//     email: {
-//       type: String,
-//       required: true,
-//       unique: true,
-//       lowercase: true
-//     },
-
-//     password: {
-//       type: String,
-//       required: true
-//     },
-
-//     leetcode: leetcodeSchema
-//   },
-//   {
-//     timestamps: true // createdAt & updatedAt auto add karega
-//   }
-// );
-
-// export default mongoose.model("User", userSchema);
-
 import mongoose from "mongoose";
 
 const leetcodeSchema = new mongoose.Schema({
@@ -115,6 +37,11 @@ const githubSchema = new mongoose.Schema({
   contributionGraph: Array
 });
 
+const activitySchema = new mongoose.Schema({
+  date: String,
+  count: Number
+});
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -127,9 +54,15 @@ const userSchema = new mongoose.Schema({
     required: true
   },
 
+  activity: [activitySchema],
   leetcode: leetcodeSchema,
   codeforces: codeforcesSchema,
-  github: githubSchema
+  github: githubSchema,
+
+  lastSyncedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 export default mongoose.model("User", userSchema);
