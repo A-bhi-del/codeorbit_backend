@@ -57,8 +57,12 @@ export const getLeaderboard = async (req, res) => {
         $project: {
 
           email: 1,
+          displayName: 1,
+          photoURL: 1,
 
-          avatar: "$github.avatar",
+          avatar: {
+            $ifNull: ["$photoURL", "$github.avatar"]
+          },
 
           leetcodeSolved: 1,
           cfRating: 1,

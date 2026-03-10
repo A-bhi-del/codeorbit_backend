@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
+import { initializeFirebase } from "./config/firebase.js";
 import authRoutes from "./routes/auth.routes.js";
 import leetcodeRoutes from "./routes/leetcode.routes.js";
 import codeforcesRoutes from "./routes/codeforces.routes.js";
@@ -13,6 +14,7 @@ import profileRoutes from "./routes/profile.routes.js";
 
 dotenv.config();
 connectDB();
+initializeFirebase();
 
 const app = express();
 app.use(express.json());

@@ -51,7 +51,24 @@ const userSchema = new mongoose.Schema({
 
   password: {
     type: String,
-    required: true
+    required: function() {
+      return !this.firebaseUid; // Password not required for Firebase users
+    }
+  },
+
+  // Firebase fields
+  firebaseUid: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+
+  displayName: String,
+  photoURL: String,
+  provider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
   },
 
   activity: [activitySchema],
