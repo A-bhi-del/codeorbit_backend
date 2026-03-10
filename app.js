@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import { connectDB } from "./config/db.js";
 import { initializeFirebase } from "./config/firebase.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -17,6 +18,23 @@ connectDB();
 initializeFirebase();
 
 const app = express();
+
+// CORS configuration
+const corsOptions = {
+  origin: [
+    "http://localhost:3000",
+    "https://codeorbit-sage.vercel.app",
+    "https://codeorbit-git-main-arpit-srivastavas-projects-4aa240ca.vercel.app",
+    "https://codeorbit-9eqzasyrb-arpit-srivastavas-projects-4aa240ca.vercel.app"
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
