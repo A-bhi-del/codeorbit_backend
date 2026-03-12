@@ -1,38 +1,39 @@
 export const calculateWeeklyTrend = (activity) => {
-
-  const weeks = {
-    week1: 0,
-    week2: 0,
-    week3: 0,
-    week4: 0
-  };
-
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  activity.forEach((a) => {
+  // Initialize last 7 days with 0 problems
+  const last7Days = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const dayName = dayNames[date.getDay()];
+    last7Days.push({
+      day: dayName,
+      problems: 0,
+      date: date.toISOString().split('T')[0]
+    });
+  }
 
-    const activityDate = new Date(a.date);
+  // Fill in actual activity data
+  if (activity && activity.length > 0) {
+    activity.forEach((a) => {
+      const activityDate = new Date(a.date);
+      activityDate.setHours(0, 0, 0, 0);
+      
+      const diffDays = Math.floor((today - activityDate) / (1000 * 60 * 60 * 24));
+      
+      // Only include last 7 days
+      if (diffDays >= 0 && diffDays < 7) {
+        const dayIndex = 6 - diffDays;
+        if (last7Days[dayIndex]) {
+          last7Days[dayIndex].problems += a.count;
+        }
+      }
+    });
+  }
 
-    const diffDays =
-      Math.floor((today - activityDate) / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 7) {
-      weeks.week1 += a.count;
-    } else if (diffDays <= 14) {
-      weeks.week2 += a.count;
-    } else if (diffDays <= 21) {
-      weeks.week3 += a.count;
-    } else if (diffDays <= 30) {
-      weeks.week4 += a.count;
-    }
-
-  });
-
-  return [
-    { week: "Week 1", activity: weeks.week1 },
-    { week: "Week 2", activity: weeks.week2 },
-    { week: "Week 3", activity: weeks.week3 },
-    { week: "Week 4", activity: weeks.week4 }
-  ];
-
+  // Return without the date field (only day and problems)
+  return last7Days.map(({ day, problems }) => ({ day, problems }));
 };

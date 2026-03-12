@@ -11,13 +11,15 @@ export const calculateConsistencyScore = (activity) => {
 
     const activityDate = new Date(a.date);
 
-    if (activityDate >= last30) {
+    if (activityDate >= last30 && activityDate <= today) {
       activeDays++;
     }
 
   });
 
-  const score = (activeDays / 30) * 100;
+  // Cap at 30 days max and ensure it doesn't exceed 100%
+  const cappedActiveDays = Math.min(activeDays, 30);
+  const score = (cappedActiveDays / 30) * 100;
 
   return Math.round(score);
 

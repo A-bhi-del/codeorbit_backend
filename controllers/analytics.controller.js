@@ -339,3 +339,43 @@ export const getContestRatings = async (req, res) => {
     });
   }
 };
+
+
+export const getBadges = async (req, res) => {
+  try {
+    const userId = req.user;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    // Get LeetCode badges
+    const badges = [];
+    
+    if (user.leetcode?.badges && user.leetcode.badges.length > 0) {
+      user.leetcode.badges.forEach(badge => {
+        badges.push({
+          name: badge.name,
+          icon: badge.icon,
+          platform: "LeetCode"
+        });
+      });
+    }
+
+    console.log("getBadges - Found badges:", badges.length);
+
+    res.json({
+      badges,
+      hasBadges: badges.length > 0
+    });
+
+  } catch (error) {
+    console.error("Error fetching badges:", error);
+    res.status(500).json({
+      message: "Error fetching badges"
+    });
+  }
+};
