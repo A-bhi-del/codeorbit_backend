@@ -9,6 +9,13 @@ const leetcodeSchema = new mongoose.Schema({
   contestRating: Number,
   contestsPlayed: Number,
   totalActiveDays: Number,
+  difficultyBreakdown: [
+    {
+      name: String,
+      value: Number,
+      color: String
+    }
+  ],
   badges: [
     {
       name: String,

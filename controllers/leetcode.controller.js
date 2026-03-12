@@ -80,6 +80,17 @@ export const verifyLeetCode = async (req, res) => {
       (item) => item.difficulty === "All"
     )?.count || 0;
 
+    // Extract difficulty breakdown
+    const easy = stats.find((item) => item.difficulty === "Easy")?.count || 0;
+    const medium = stats.find((item) => item.difficulty === "Medium")?.count || 0;
+    const hard = stats.find((item) => item.difficulty === "Hard")?.count || 0;
+
+    const difficultyBreakdown = [
+      { name: "Easy", value: easy, color: "oklch(0.7 0.18 165)" },
+      { name: "Medium", value: medium, color: "oklch(0.75 0.15 80)" },
+      { name: "Hard", value: hard, color: "oklch(0.6 0.22 330)" }
+    ];
+
     // 🔹 Contest rating
     const rating =
       profileData.userContestRanking?.rating || 0;
@@ -87,7 +98,7 @@ export const verifyLeetCode = async (req, res) => {
     const contestsPlayed =
       profileData.userContestRanking?.attendedContestsCount || 0;
 
-    // 🔹 Active days
+    // 🔹 Active days from calendar
     const calendarRaw =
       profileData.matchedUser.userCalendar?.submissionCalendar || "{}";
 
@@ -110,6 +121,32 @@ export const verifyLeetCode = async (req, res) => {
     user.leetcode.contestsPlayed = contestsPlayed;
     user.leetcode.totalActiveDays = totalActiveDays;
     user.leetcode.badges = badges;
+    user.leetcode.difficultyBreakdown = difficultyBreakdown;
+
+    // Initialize activity array if not exists
+    if (!user.activity) {
+      user.activity = [];
+    }
+
+    // Parse LeetCode calendar and add to activity
+    // Calendar format: { "timestamp": count, ... }
+    let addedDays = 0;
+    Object.entries(calendar).forEach(([timestamp, count]) => {
+      const date = new Date(parseInt(timestamp) * 1000).toISOString().slice(0, 10);
+      const existingActivity = user.activity.find(a => a.date === date);
+      
+      if (existingActivity) {
+        existingActivity.count += count;
+      } else {
+        user.activity.push({
+          date,
+          count
+        });
+        addedDays++;
+      }
+    });
+
+    console.log(`Added ${addedDays} days of LeetCode activity`);
 
     await user.save();
 
@@ -119,10 +156,12 @@ export const verifyLeetCode = async (req, res) => {
       contestRating: rating,
       contestsPlayed,
       totalActiveDays,
-      badges
+      badges,
+      activityDaysAdded: addedDays
     });
 
   } catch (error) {
+    console.error("LeetCode verification error:", error.message);
     res.status(500).json({ message: error.message });
   }
 };

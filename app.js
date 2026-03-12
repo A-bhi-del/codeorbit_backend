@@ -12,6 +12,7 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 import contestRoutes from "./routes/contest.routes.js";
 import resourceRoutes from "./routes/resource.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
+import syncRoutes from "./routes/sync.routes.js";
 
 dotenv.config();
 connectDB();
@@ -46,5 +47,6 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/contests", contestRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/sync", syncRoutes);
 
 export default app;
