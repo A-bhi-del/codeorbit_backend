@@ -13,6 +13,8 @@ import contestRoutes from "./routes/contest.routes.js";
 import resourceRoutes from "./routes/resource.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import syncRoutes from "./routes/sync.routes.js";
+import codechefRoutes from "./routes/codechef.routes.js";
+import gfgRoutes from "./routes/gfg.routes.js";
 
 dotenv.config();
 connectDB();
@@ -48,5 +50,7 @@ app.use("/api/contests", contestRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/sync", syncRoutes);
+app.use("/api/codechef", codechefRoutes);
+app.use("/api/gfg", gfgRoutes);
 
 export default app;

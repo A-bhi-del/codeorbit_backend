@@ -129,6 +129,20 @@ export const getPlatformComparison = async (req, res) => {
         solved: null,
         rating: null,
         activity: user.github?.totalStars || 0
+      },
+
+      {
+        platform: "CodeChef",
+        solved: 0,
+        rating: user.codechef?.rating || 0,
+        activity: 0
+      },
+
+      {
+        platform: "GFG",
+        solved: user.gfg?.problemsSolved || 0,
+        rating: user.gfg?.score || 0,
+        activity: 0
       }
 
     ];
@@ -268,6 +282,22 @@ export const getProblemStats = async (req, res) => {
       });
     }
 
+    if (user.codechef?.problemsSolved) {
+      platformBreakdown.push({
+        platform: "CodeChef",
+        value: user.codechef.problemsSolved,
+        color: "oklch(0.68 0.19 30)"
+      });
+    }
+
+    if (user.gfg?.problemsSolved) {
+      platformBreakdown.push({
+        platform: "GFG",
+        value: user.gfg.problemsSolved,
+        color: "oklch(0.72 0.17 140)"
+      });
+    }
+
     const totalSolved = platformBreakdown.reduce((sum, p) => sum + p.value, 0);
 
     // Difficulty distribution (from LeetCode if available)
@@ -322,7 +352,7 @@ export const getContestRatings = async (req, res) => {
     const ratings = {
       leetcode: user.leetcode?.contestRating || null,
       codeforces: user.codeforces?.rating || null,
-      codechef: null // Add when CodeChef is integrated
+      codechef: user.codechef?.rating || null
     };
 
     console.log("getContestRatings - Ratings:", ratings);

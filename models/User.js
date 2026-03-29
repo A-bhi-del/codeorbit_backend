@@ -44,6 +44,25 @@ const githubSchema = new mongoose.Schema({
   contributionGraph: Array
 });
 
+const codechefSchema = new mongoose.Schema({
+  username: String,
+  rating: Number,
+  highestRating: Number,
+  stars: String,
+  globalRank: Number,
+  countryRank: Number,
+  problemsSolved: Number,
+  lastFetched: Date
+});
+
+const gfgSchema = new mongoose.Schema({
+  username: String,
+  score: Number,
+  problemsSolved: Number,
+  codingScore: Number,
+  lastFetched: Date
+});
+
 const activitySchema = new mongoose.Schema({
   date: String,
   count: Number
@@ -82,6 +101,8 @@ const userSchema = new mongoose.Schema({
   leetcode: leetcodeSchema,
   codeforces: codeforcesSchema,
   github: githubSchema,
+  codechef: codechefSchema,
+  gfg: gfgSchema,
 
   lastSyncedAt: {
     type: Date,

@@ -131,7 +131,9 @@ export const getProfile = async (req, res) => {
         platforms: {
           leetcode: user.leetcode,
           codeforces: user.codeforces,
-          github: user.github
+          github: user.github,
+          codechef: user.codechef,
+          gfg: user.gfg
         }
       }
     });

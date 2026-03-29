@@ -2,6 +2,8 @@ import User from "../models/User.js";
 import { fetchLeetCodeFullProfile } from "../services/leetcode.service.js";
 import { fetchCodeforcesProfile } from "../services/codeforces.service.js";
 import { fetchGithubProfile } from "../services/github.service.js";
+import { getCodeChefData } from "../services/codechefService.js";
+import { getGFGData } from "../services/gfgService.js";
 
 export const syncAllPlatforms = async (req, res) => {
   try {
@@ -16,6 +18,8 @@ export const syncAllPlatforms = async (req, res) => {
       leetcode: null,
       codeforces: null,
       github: null,
+      codechef: null,
+      gfg: null,
       activityDaysAdded: 0
     };
 
@@ -156,6 +160,52 @@ export const syncAllPlatforms = async (req, res) => {
       } catch (error) {
         console.error("GitHub sync error:", error.message);
         results.github = { error: error.message };
+      }
+    }
+
+    // Sync CodeChef
+    if (user.codechef?.username) {
+      try {
+        console.log(`Syncing CodeChef for ${user.codechef.username}`);
+        
+        const codechefData = await getCodeChefData(user.codechef.username);
+        
+        user.codechef = {
+          ...user.codechef,
+          ...codechefData
+        };
+
+        results.codechef = { 
+          rating: codechefData.rating,
+          highestRating: codechefData.highestRating 
+        };
+        console.log(`CodeChef synced: rating ${codechefData.rating}`);
+      } catch (error) {
+        console.error("CodeChef sync error:", error.message);
+        results.codechef = { error: error.message };
+      }
+    }
+
+    // Sync GFG
+    if (user.gfg?.username) {
+      try {
+        console.log(`Syncing GFG for ${user.gfg.username}`);
+        
+        const gfgData = await getGFGData(user.gfg.username);
+        
+        user.gfg = {
+          ...user.gfg,
+          ...gfgData
+        };
+
+        results.gfg = { 
+          score: gfgData.score,
+          problemsSolved: gfgData.problemsSolved 
+        };
+        console.log(`GFG synced: score ${gfgData.score}`);
+      } catch (error) {
+        console.error("GFG sync error:", error.message);
+        results.gfg = { error: error.message };
       }
     }
 
