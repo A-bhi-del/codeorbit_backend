@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import User from "../models/User.js";
-import { fetchLeetCodeFullProfile } from "../services/leetcode.service.js";
+import { fetchLeetCodeFullProfile, fetchLeetCodeSolvedProblems } from "../services/leetcode.service.js";
 
 // 🔹 STEP 1 — Connect LeetCode
 export const connectLeetCode = async (req, res) => {
@@ -162,6 +162,29 @@ export const verifyLeetCode = async (req, res) => {
 
   } catch (error) {
     console.error("LeetCode verification error:", error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🔹 NEW: Get LeetCode Solved Problems
+export const getLeetCodeProblems = async (req, res) => {
+  try {
+    const userId = req.user;
+    const user = await User.findById(userId);
+
+    if (!user || !user.leetcode?.verified) {
+      return res.status(400).json({ message: "LeetCode not connected or verified" });
+    }
+
+    const problems = await fetchLeetCodeSolvedProblems(user.leetcode.username);
+    
+    res.json({
+      problems,
+      total: problems.length,
+      platform: "LeetCode"
+    });
+
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };

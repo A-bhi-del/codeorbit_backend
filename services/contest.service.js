@@ -13,7 +13,8 @@ export const fetchCodeforcesContests = async () => {
       platform: "Codeforces",
       name: c.name,
       startTime: new Date(c.startTimeSeconds * 1000),
-      duration: c.durationSeconds / 3600
+      duration: c.durationSeconds / 3600,
+      link: `https://codeforces.com/contest/${c.id}`
     }));
 
   return contests;
@@ -31,6 +32,7 @@ export const fetchLeetCodeContests = async () => {
         {
           allContests {
             title
+            titleSlug
             startTime
             duration
           }
@@ -49,7 +51,8 @@ export const fetchLeetCodeContests = async () => {
       platform: "LeetCode",
       name: c.title,
       startTime: new Date(c.startTime * 1000),
-      duration: c.duration / 3600
+      duration: c.duration / 3600,
+      link: `https://leetcode.com/contest/${c.titleSlug}`
     }));
 
   return contests;
