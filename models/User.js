@@ -68,6 +68,36 @@ const activitySchema = new mongoose.Schema({
   count: Number
 });
 
+const recommendationSchema = new mongoose.Schema({
+  generatedAt: Date,
+  recommendations: {
+    analysis: {
+      dominantTopics: [String],
+      currentDifficultyLevel: String,
+      solvingPattern: String,
+      identifiedGaps: [String]
+    },
+    recommendations: [
+      {
+        title: String,
+        platform: String,
+        difficulty: String,
+        topics: [String],
+        reasoning: String,
+        priority: String,
+        estimatedTime: String,
+        learningObjective: String
+      }
+    ],
+    learningPath: {
+      currentFocus: String,
+      nextMilestone: String,
+      suggestedStudyOrder: [String]
+    }
+  },
+  basedOnProblems: Number
+});
+
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -103,6 +133,9 @@ const userSchema = new mongoose.Schema({
   github: githubSchema,
   codechef: codechefSchema,
   gfg: gfgSchema,
+
+  // AI Recommendations
+  lastRecommendations: recommendationSchema,
 
   lastSyncedAt: {
     type: Date,

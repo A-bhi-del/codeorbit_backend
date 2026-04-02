@@ -6,6 +6,7 @@
 - MongoDB Atlas account or local MongoDB
 - Firebase Admin SDK credentials
 - GitHub Personal Access Token
+- OpenAI API Key
 
 ## Environment Setup
 
@@ -23,6 +24,9 @@ PORT=5000
 
 # GitHub Token (For fetching contribution data)
 GITHUB_TOKEN=your_github_personal_access_token
+
+# OpenAI API Key (For AI recommendations)
+OPENAI_API_KEY=your_openai_api_key_here
 
 # Firebase Admin SDK
 FIREBASE_PROJECT_ID=your_firebase_project_id
@@ -48,6 +52,13 @@ npm run dev
 ```bash
 npm start
 ```
+
+## OpenAI Setup
+
+1. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Add it to your `.env` file as `OPENAI_API_KEY`
+3. The AI recommendation system uses GPT-4 for intelligent problem suggestions
+4. Make sure you have sufficient credits in your OpenAI account
 
 Server will run on `http://localhost:5000`
 

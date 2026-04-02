@@ -16,6 +16,7 @@ import syncRoutes from "./routes/sync.routes.js";
 import codechefRoutes from "./routes/codechef.routes.js";
 import gfgRoutes from "./routes/gfg.routes.js";
 import problemsRoutes from "./routes/problems.routes.js";
+import recommendationsRoutes from "./routes/recommendations.routes.js";
 
 dotenv.config();
 connectDB();
@@ -54,5 +55,6 @@ app.use("/api/sync", syncRoutes);
 app.use("/api/codechef", codechefRoutes);
 app.use("/api/gfg", gfgRoutes);
 app.use("/api/problems", problemsRoutes);
+app.use("/api/recommendations", recommendationsRoutes);
 
 export default app;

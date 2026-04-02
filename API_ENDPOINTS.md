@@ -502,6 +502,155 @@ POST /sync/all
 
 ---
 
+---
+
+## 🤖 AI Recommendation Endpoints
+
+### 17. Get AI-Powered Problem Recommendations
+```http
+GET /recommendations/ai
+```
+
+**Request Body:** None
+
+**Response:**
+```json
+{
+  "success": true,
+  "analysis": {
+    "dominantTopics": ["graph", "array", "dynamic_programming"],
+    "currentDifficultyLevel": "easy-medium",
+    "solvingPattern": "consistent graph problems, needs difficulty progression",
+    "identifiedGaps": ["advanced graph algorithms", "tree traversal"]
+  },
+  "recommendations": [
+    {
+      "title": "Binary Tree Level Order Traversal",
+      "platform": "LeetCode",
+      "difficulty": "Medium",
+      "topics": ["tree", "bfs", "queue"],
+      "reasoning": "Next step in graph/tree learning path after mastering basic traversal",
+      "priority": "high",
+      "estimatedTime": "30-45 minutes",
+      "learningObjective": "Master BFS traversal in trees"
+    },
+    {
+      "title": "Number of Islands",
+      "platform": "LeetCode", 
+      "difficulty": "Medium",
+      "topics": ["graph", "dfs", "bfs"],
+      "reasoning": "Apply graph concepts to 2D grid problems",
+      "priority": "high",
+      "estimatedTime": "25-40 minutes",
+      "learningObjective": "Grid-based graph problems"
+    }
+  ],
+  "learningPath": {
+    "currentFocus": "Graph Algorithms",
+    "nextMilestone": "Medium Graph Problems",
+    "suggestedStudyOrder": ["BFS/DFS", "Shortest Path", "MST", "Topological Sort"]
+  },
+  "basedOnProblems": 18,
+  "generatedAt": "2024-01-15T10:30:00.000Z",
+  "message": "AI recommendations generated successfully"
+}
+```
+
+### 18. Get Topic-Specific Recommendations
+```http
+GET /recommendations/topic?topic=graph&difficulty=medium&platform=leetcode
+```
+
+**Query Parameters:**
+- `topic` (required): Topic name (e.g., "graph", "dp", "array")
+- `difficulty` (required): Difficulty level ("easy", "medium", "hard")
+- `platform` (required): Platform name ("leetcode", "codeforces")
+
+**Request Body:** None
+
+**Response:**
+```json
+{
+  "success": true,
+  "topic": "graph",
+  "difficulty": "medium",
+  "platform": "leetcode",
+  "problems": [
+    {
+      "title": "Course Schedule",
+      "description": "Detect cycle in directed graph using topological sorting",
+      "keyConcepts": ["topological_sort", "cycle_detection", "dfs"],
+      "difficulty": "medium",
+      "estimatedTime": "35-50 minutes",
+      "prerequisites": ["basic graph traversal", "dfs understanding"]
+    },
+    {
+      "title": "Clone Graph",
+      "description": "Deep copy of undirected graph using DFS/BFS",
+      "keyConcepts": ["graph_cloning", "dfs", "hashmap"],
+      "difficulty": "medium", 
+      "estimatedTime": "25-40 minutes",
+      "prerequisites": ["graph representation", "dfs/bfs"]
+    }
+  ],
+  "message": "Specific medium graph problems for leetcode"
+}
+```
+
+### 19. Get Learning Path Suggestions
+```http
+GET /recommendations/learning-path
+```
+
+**Request Body:** None
+
+**Response:**
+```json
+{
+  "success": true,
+  "learningPath": {
+    "currentFocus": "Graph Algorithms",
+    "nextMilestone": "Advanced Graph Algorithms",
+    "suggestedStudyOrder": [
+      "Basic Graph Traversal (DFS/BFS)",
+      "Shortest Path Algorithms",
+      "Minimum Spanning Tree",
+      "Topological Sorting",
+      "Advanced Graph Problems"
+    ]
+  },
+  "generatedAt": "2024-01-15T10:30:00.000Z",
+  "message": "Learning path from recent analysis"
+}
+```
+
+### 20. Get Difficulty Progression Analysis
+```http
+GET /recommendations/difficulty-progression?platform=leetcode
+```
+
+**Query Parameters:**
+- `platform` (optional): Platform to analyze ("leetcode", "codeforces")
+
+**Request Body:** None
+
+**Response:**
+```json
+{
+  "success": true,
+  "platform": "leetcode",
+  "currentLevel": "Easy",
+  "nextLevel": "Medium",
+  "suggestions": [
+    "Continue practicing Easy problems to build confidence",
+    "Gradually attempt Medium problems (1-2 per week)",
+    "Focus on understanding solutions rather than just solving",
+    "Review and optimize your previous solutions"
+  ],
+  "message": "Difficulty progression analysis"
+}
+```
+
 ## ❌ Error Responses
 
 All endpoints may return these error responses:
