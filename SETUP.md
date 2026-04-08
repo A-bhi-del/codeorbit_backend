@@ -55,10 +55,13 @@ npm start
 
 ## OpenAI Setup
 
-1. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Add it to your `.env` file as `OPENAI_API_KEY`
-3. The AI recommendation system uses GPT-4 for intelligent problem suggestions
-4. Make sure you have sufficient credits in your OpenAI account
+1. The system uses OpenAI GPT models for intelligent problem recommendations
+2. **Primary Model**: GPT-4 (most advanced reasoning)
+3. **Backup Model**: GPT-3.5-turbo (faster and more cost-effective)
+4. **Fallback**: Rule-based system if both models fail
+5. Add your OpenAI API key to the `.env` file as `OPENAI_API_KEY`
+6. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+7. The system automatically handles model fallbacks and rate limits
 
 Server will run on `http://localhost:5000`
 

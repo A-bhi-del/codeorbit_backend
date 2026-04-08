@@ -504,7 +504,7 @@ POST /sync/all
 
 ---
 
-## 🤖 AI Recommendation Endpoints
+## 🤖 AI Recommendation Endpoints (Powered by OpenAI GPT)
 
 ### 17. Get AI-Powered Problem Recommendations
 ```http
@@ -518,10 +518,10 @@ GET /recommendations/ai
 {
   "success": true,
   "analysis": {
-    "dominantTopics": ["graph", "array", "dynamic_programming"],
+    "dominantTopics": ["array", "string", "tree"],
     "currentDifficultyLevel": "easy-medium",
-    "solvingPattern": "consistent graph problems, needs difficulty progression",
-    "identifiedGaps": ["advanced graph algorithms", "tree traversal"]
+    "solvingPattern": "consistent easy problems, ready for medium difficulty",
+    "identifiedGaps": ["graph algorithms", "dynamic programming"]
   },
   "recommendations": [
     {
@@ -529,102 +529,41 @@ GET /recommendations/ai
       "platform": "LeetCode",
       "difficulty": "Medium",
       "topics": ["tree", "bfs", "queue"],
-      "reasoning": "Next step in graph/tree learning path after mastering basic traversal",
+      "reasoning": "Natural progression from basic tree problems to BFS traversal",
       "priority": "high",
       "estimatedTime": "30-45 minutes",
       "learningObjective": "Master BFS traversal in trees"
-    },
-    {
-      "title": "Number of Islands",
-      "platform": "LeetCode", 
-      "difficulty": "Medium",
-      "topics": ["graph", "dfs", "bfs"],
-      "reasoning": "Apply graph concepts to 2D grid problems",
-      "priority": "high",
-      "estimatedTime": "25-40 minutes",
-      "learningObjective": "Grid-based graph problems"
     }
   ],
   "learningPath": {
-    "currentFocus": "Graph Algorithms",
-    "nextMilestone": "Medium Graph Problems",
-    "suggestedStudyOrder": ["BFS/DFS", "Shortest Path", "MST", "Topological Sort"]
+    "currentFocus": "Tree and Graph Algorithms",
+    "nextMilestone": "Medium Difficulty Problems",
+    "suggestedStudyOrder": ["Tree Traversal", "Graph BFS/DFS", "Dynamic Programming Basics"]
   },
   "basedOnProblems": 18,
-  "generatedAt": "2024-01-15T10:30:00.000Z",
-  "message": "AI recommendations generated successfully"
-}
-```
-
-### 18. Get Topic-Specific Recommendations
-```http
-GET /recommendations/topic?topic=graph&difficulty=medium&platform=leetcode
-```
-
-**Query Parameters:**
-- `topic` (required): Topic name (e.g., "graph", "dp", "array")
-- `difficulty` (required): Difficulty level ("easy", "medium", "hard")
-- `platform` (required): Platform name ("leetcode", "codeforces")
-
-**Request Body:** None
-
-**Response:**
-```json
-{
-  "success": true,
-  "topic": "graph",
-  "difficulty": "medium",
-  "platform": "leetcode",
-  "problems": [
+  "analyzedProblems": [
     {
-      "title": "Course Schedule",
-      "description": "Detect cycle in directed graph using topological sorting",
-      "keyConcepts": ["topological_sort", "cycle_detection", "dfs"],
-      "difficulty": "medium",
-      "estimatedTime": "35-50 minutes",
-      "prerequisites": ["basic graph traversal", "dfs understanding"]
+      "title": "Two Sum",
+      "platform": "LeetCode",
+      "difficulty": "Easy"
     },
     {
-      "title": "Clone Graph",
-      "description": "Deep copy of undirected graph using DFS/BFS",
-      "keyConcepts": ["graph_cloning", "dfs", "hashmap"],
-      "difficulty": "medium", 
-      "estimatedTime": "25-40 minutes",
-      "prerequisites": ["graph representation", "dfs/bfs"]
+      "title": "Valid Parentheses", 
+      "platform": "LeetCode",
+      "difficulty": "Easy"
     }
   ],
-  "message": "Specific medium graph problems for leetcode"
-}
-```
-
-### 19. Get Learning Path Suggestions
-```http
-GET /recommendations/learning-path
-```
-
-**Request Body:** None
-
-**Response:**
-```json
-{
-  "success": true,
-  "learningPath": {
-    "currentFocus": "Graph Algorithms",
-    "nextMilestone": "Advanced Graph Algorithms",
-    "suggestedStudyOrder": [
-      "Basic Graph Traversal (DFS/BFS)",
-      "Shortest Path Algorithms",
-      "Minimum Spanning Tree",
-      "Topological Sorting",
-      "Advanced Graph Problems"
-    ]
+  "userProfile": {
+    "totalSolved": 150,
+    "platforms": ["LeetCode", "Codeforces"],
+    "languages": ["python3", "cpp"]
   },
   "generatedAt": "2024-01-15T10:30:00.000Z",
-  "message": "Learning path from recent analysis"
+  "message": "AI recommendations generated based on your recent solved problems"
 }
 ```
 
-### 20. Get Difficulty Progression Analysis
+### 18. Get Difficulty Progression Analysis
 ```http
 GET /recommendations/difficulty-progression?platform=leetcode
 ```
@@ -688,12 +627,13 @@ All endpoints may return these error responses:
 ## 📝 Usage Notes
 
 1. **Authentication**: All endpoints except `/auth/signup` and `/auth/login` require JWT token
-2. **Rate Limiting**: Be mindful of external API rate limits (LeetCode, Codeforces, GitHub)
+2. **Rate Limiting**: Be mindful of external API rate limits (LeetCode, Codeforces, GitHub, Gemini AI)
 3. **Data Freshness**: Use `/sync/all` endpoint to refresh data from external platforms
 4. **Pagination**: Leaderboard supports pagination with `page` query parameter
 5. **Platform Status**: Check `platformStats` in responses to see which platforms are connected
 6. **Error Handling**: Always handle error responses appropriately in your frontend
 7. **Links**: All problem objects include direct `link` field for navigation to original problem
+8. **AI Recommendations**: Powered by OpenAI GPT models for intelligent problem suggestions
 
 ## 🔗 Frontend Integration Example
 

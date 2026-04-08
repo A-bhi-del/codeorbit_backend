@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import { fetchLeetCodeSolvedProblems } from "../services/leetcode.service.js";
 import { fetchCodeforcesSolvedProblems } from "../services/codeforces.service.js";
-import { analyzeAndRecommendProblems, getSpecificProblemRecommendations } from "../services/openai.service.js";
+import { analyzeAndRecommendProblems } from "../services/openai.service.js";
 
 // Get AI-powered problem recommendations based on recent activity
 export const getAIRecommendations = async (req, res) => {
@@ -13,7 +13,7 @@ export const getAIRecommendations = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Collect recent problems from all platforms
+    // Collect recent problems from all platforms using existing endpoints
     const recentProblems = [];
     
     // Get LeetCode problems
@@ -38,7 +38,8 @@ export const getAIRecommendations = async (req, res) => {
 
     if (recentProblems.length === 0) {
       return res.status(400).json({ 
-        message: "No recent problems found. Please connect and solve some problems first." 
+        message: "No recent problems found. Please connect platforms and solve some problems first.",
+        suggestion: "Connect LeetCode or Codeforces and solve a few problems to get personalized recommendations"
       });
     }
 
@@ -46,23 +47,35 @@ export const getAIRecommendations = async (req, res) => {
     recentProblems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     const recentActivity = recentProblems.slice(0, 20);
 
+    console.log(`📊 Analyzing ${recentActivity.length} recent problems for AI recommendations...`);
+    console.log("Recent problems:", recentActivity.map(p => `${p.title} (${p.platform})`));
+
     // Create user profile for AI analysis
     const userProfile = {
       totalSolved: (user.leetcode?.totalSolved || 0) + (user.codeforces?.solvedProblems || 0),
       leetcodeRating: user.leetcode?.contestRating,
       codeforcesRating: user.codeforces?.rating,
       languages: getPreferredLanguages(recentActivity),
-      platforms: getConnectedPlatforms(user)
+      platforms: getConnectedPlatforms(user),
+      recentPlatforms: [...new Set(recentActivity.map(p => p.platform))]
     };
 
-    // Get AI recommendations
+    console.log("User profile for AI:", userProfile);
+
+    // Get AI recommendations based on actual user data
     const aiRecommendations = await analyzeAndRecommendProblems(recentActivity, userProfile);
 
     // Store recommendations in user profile for future reference
     user.lastRecommendations = {
       generatedAt: new Date(),
       recommendations: aiRecommendations,
-      basedOnProblems: recentActivity.length
+      basedOnProblems: recentActivity.length,
+      analyzedProblems: recentActivity.map(p => ({
+        title: p.title,
+        platform: p.platform,
+        difficulty: p.difficulty || (p.rating ? getDifficultyFromRating(p.rating) : 'Unknown'),
+        timestamp: p.timestamp
+      }))
     };
     await user.save();
 
@@ -72,83 +85,39 @@ export const getAIRecommendations = async (req, res) => {
       recommendations: aiRecommendations.recommendations,
       learningPath: aiRecommendations.learningPath,
       basedOnProblems: recentActivity.length,
+      analyzedProblems: recentActivity.map(p => ({
+        title: p.title,
+        platform: p.platform,
+        difficulty: p.difficulty || (p.rating ? getDifficultyFromRating(p.rating) : 'Unknown')
+      })),
+      userProfile: {
+        totalSolved: userProfile.totalSolved,
+        platforms: userProfile.platforms,
+        languages: userProfile.languages
+      },
       generatedAt: new Date(),
-      message: "AI recommendations generated successfully"
+      message: "AI recommendations generated based on your recent solved problems"
     });
 
   } catch (error) {
     console.error("AI Recommendations Error:", error.message);
     res.status(500).json({ 
       message: "Failed to generate recommendations",
-      error: error.message 
+      error: error.message,
+      suggestion: "Make sure you have solved some problems on connected platforms"
     });
   }
 };
 
-// Get specific recommendations for a topic and difficulty
-export const getTopicRecommendations = async (req, res) => {
-  try {
-    const { topic, difficulty, platform } = req.query;
-
-    if (!topic || !difficulty || !platform) {
-      return res.status(400).json({ 
-        message: "Please provide topic, difficulty, and platform parameters" 
-      });
-    }
-
-    const recommendations = await getSpecificProblemRecommendations(topic, difficulty, platform);
-
-    res.json({
-      success: true,
-      topic,
-      difficulty,
-      platform,
-      problems: recommendations.problems,
-      message: `Specific ${difficulty} ${topic} problems for ${platform}`
-    });
-
-  } catch (error) {
-    console.error("Topic Recommendations Error:", error.message);
-    res.status(500).json({ 
-      message: "Failed to get topic recommendations",
-      error: error.message 
-    });
-  }
+// Helper function to determine difficulty from Codeforces rating
+const getDifficultyFromRating = (rating) => {
+  if (!rating) return "Unknown";
+  if (rating <= 1000) return "Easy";
+  if (rating <= 1500) return "Medium";
+  return "Hard";
 };
 
-// Get learning path suggestions
-export const getLearningPath = async (req, res) => {
-  try {
-    const userId = req.user;
-    const user = await User.findById(userId);
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Check if we have recent recommendations
-    if (user.lastRecommendations && 
-        user.lastRecommendations.generatedAt > new Date(Date.now() - 24 * 60 * 60 * 1000)) {
-      
-      return res.json({
-        success: true,
-        learningPath: user.lastRecommendations.recommendations.learningPath,
-        generatedAt: user.lastRecommendations.generatedAt,
-        message: "Learning path from recent analysis"
-      });
-    }
-
-    // If no recent recommendations, suggest generating new ones
-    res.json({
-      success: false,
-      message: "No recent analysis found. Please generate new recommendations first.",
-      suggestion: "Call /api/recommendations/ai endpoint to get fresh analysis"
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
 
 // Get problem difficulty progression suggestions
 export const getDifficultyProgression = async (req, res) => {
