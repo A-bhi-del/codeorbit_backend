@@ -1,196 +1,170 @@
 import axios from "axios";
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 export const analyzeAndRecommendProblems = async (recentProblems, userProfile) => {
-  try {
-    const prompt = createRecommendationPrompt(recentProblems, userProfile);
-    
-    const response = await axios.post(
-      OPENAI_API_URL,
-      {
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: `You are an expert competitive programming mentor. Analyze the user's recent problem-solving patterns and recommend the next best problems to solve. Focus on:
-            1. Topic progression (if doing graphs, suggest next graph problems)
-            2. Difficulty progression (gradually increase difficulty)
-            3. Skill gaps identification
-            4. Learning path optimization
-            
-            Always respond in valid JSON format with recommendations array.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        }
-      }
-    );
-
-    const aiResponse = response.data.choices[0].message.content;
-    return JSON.parse(aiResponse);
-    
-  } catch (error) {
-    console.error("OpenAI API Error:", error.message);
-    throw new Error("Failed to generate recommendations");
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY not found in environment variables");
   }
+
+  const prompt = createRecommendationPrompt(recentProblems, userProfile);
+  
+  console.log('Calling Gemini API...');
+  
+  const response = await axios.post(
+    `${GEMINI_API_URL}?key=${apiKey}`,
+    {
+      contents: [{
+        parts: [{
+          text: `You are an expert competitive programming mentor. Analyze the user's recent problem-solving patterns and recommend the next best problems to solve.
+
+${prompt}
+
+Respond ONLY with valid JSON in this exact format (no markdown, no code blocks, no extra text):
+{
+  "analysis": {
+    "dominantTopics": ["array", "graph", "string"],
+    "currentDifficultyLevel": "medium",
+    "solvingPattern": "User is consistently solving array and simulation problems at medium difficulty",
+    "identifiedGaps": ["dynamic programming", "tree", "hash table"]
+  },
+  "recommendations": [
+    {
+      "title": "Two Sum",
+      "platform": "LeetCode",
+      "difficulty": "Medium",
+      "topics": ["array", "hash table"],
+      "reasoning": "Build on array skills while learning hash tables",
+      "priority": "high",
+      "estimatedTime": "30 minutes",
+      "learningObjective": "Master hash table for O(n) solutions"
+    }
+  ],
+  "learningPath": {
+    "currentFocus": "Array and Simulation",
+    "nextMilestone": "Master Medium difficulty problems",
+    "suggestedStudyOrder": ["Arrays", "Hash Tables", "Dynamic Programming", "Trees", "Graphs"]
+  }
+}
+
+Provide 5-7 specific problem recommendations.`
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2000,
+        topP: 0.8,
+        topK: 40
+      }
+    },
+    {
+      headers: {
+        "Content-Type": "application/json"
+      },
+      timeout: 30000
+    }
+  );
+
+  if (!response.data.candidates || !response.data.candidates[0]) {
+    throw new Error("Invalid response from Gemini API");
+  }
+
+  const aiResponse = response.data.candidates[0].content.parts[0].text;
+  console.log('Gemini API response received');
+  
+  // Clean up response (remove markdown code blocks if present)
+  const cleanedResponse = aiResponse
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .trim();
+  
+  return JSON.parse(cleanedResponse);
 };
 
 const createRecommendationPrompt = (recentProblems, userProfile) => {
   const problemsAnalysis = recentProblems.map(p => ({
     title: p.title,
     platform: p.platform,
-    difficulty: p.difficulty || getDifficultyFromRating(p.rating),
-    topics: p.tags || extractTopicsFromTitle(p.title),
-    timestamp: p.timestamp,
-    language: p.language
+    difficulty: p.difficulty || "Unknown",
+    topics: p.tags || [],
+    timestamp: p.timestamp
   }));
 
   return `
-Analyze this user's recent competitive programming activity and recommend next problems:
-
 USER PROFILE:
 - Total Problems Solved: ${userProfile.totalSolved || 0}
 - LeetCode Rating: ${userProfile.leetcodeRating || 'N/A'}
 - Codeforces Rating: ${userProfile.codeforcesRating || 'N/A'}
-- Preferred Languages: ${userProfile.languages || 'Not specified'}
+- Preferred Languages: ${userProfile.languages?.join(', ') || 'Not specified'}
+- Connected Platforms: ${userProfile.platforms?.join(', ') || 'LeetCode'}
 
-RECENT PROBLEMS (Last 20 submissions):
+RECENT PROBLEMS (Last ${recentProblems.length} submissions):
 ${JSON.stringify(problemsAnalysis, null, 2)}
 
 ANALYSIS REQUIREMENTS:
-1. Identify the most frequent topics/tags in recent submissions
-2. Determine current difficulty level and suggest progression
-3. Find knowledge gaps or weak areas
-4. Recommend 5-8 specific problems with reasoning
-
-RESPONSE FORMAT (JSON):
-{
-  "analysis": {
-    "dominantTopics": ["array", "graph", "dp"],
-    "currentDifficultyLevel": "easy-medium",
-    "solvingPattern": "consistent graph problems, needs difficulty progression",
-    "identifiedGaps": ["advanced graph algorithms", "dynamic programming"]
-  },
-  "recommendations": [
-    {
-      "title": "Problem Name",
-      "platform": "LeetCode/Codeforces",
-      "difficulty": "Medium",
-      "topics": ["graph", "bfs"],
-      "reasoning": "Next step in graph learning path",
-      "priority": "high",
-      "estimatedTime": "30-45 minutes",
-      "learningObjective": "Master BFS traversal"
-    }
-  ],
-  "learningPath": {
-    "currentFocus": "Graph Algorithms",
-    "nextMilestone": "Medium Graph Problems",
-    "suggestedStudyOrder": ["BFS/DFS", "Shortest Path", "MST"]
-  }
-}
-
-Provide specific, actionable recommendations based on the user's current progress and learning trajectory.`;
-};
-
-const getDifficultyFromRating = (rating) => {
-  if (!rating) return "Unknown";
-  if (rating <= 1000) return "Easy";
-  if (rating <= 1500) return "Medium";
-  return "Hard";
-};
-
-const extractTopicsFromTitle = (title) => {
-  const topicKeywords = {
-    "array": ["array", "subarray", "sum", "maximum", "minimum"],
-    "string": ["string", "substring", "palindrome", "anagram"],
-    "graph": ["graph", "tree", "node", "path", "cycle", "connected"],
-    "dp": ["dynamic", "programming", "dp", "fibonacci", "climb"],
-    "math": ["math", "number", "digit", "prime", "factorial"],
-    "sorting": ["sort", "merge", "quick", "heap"],
-    "binary_search": ["binary", "search", "sorted", "target"],
-    "two_pointers": ["two", "pointer", "left", "right"],
-    "sliding_window": ["window", "sliding", "subarray", "substring"]
-  };
-
-  const detectedTopics = [];
-  const lowerTitle = title.toLowerCase();
-  
-  for (const [topic, keywords] of Object.entries(topicKeywords)) {
-    if (keywords.some(keyword => lowerTitle.includes(keyword))) {
-      detectedTopics.push(topic);
-    }
-  }
-  
-  return detectedTopics.length > 0 ? detectedTopics : ["general"];
+1. Identify the 3 most frequent topics in recent submissions
+2. Determine current difficulty level based on recent problems
+3. Identify 3-4 knowledge gaps (topics not practiced much)
+4. Recommend 5-7 specific problems that:
+   - Build on current strengths
+   - Address identified gaps
+   - Gradually increase difficulty
+   - Follow a logical learning progression
+5. Create a clear learning path with actionable steps`;
 };
 
 export const getSpecificProblemRecommendations = async (topic, difficulty, platform) => {
-  try {
-    const prompt = `
-Recommend 5 specific ${difficulty} level ${topic} problems from ${platform} platform.
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY not found in environment variables");
+  }
 
-REQUIREMENTS:
-- Provide actual problem names that exist on ${platform}
-- Include brief problem description
-- Mention key concepts to learn
-- Order by learning progression
+  const response = await axios.post(
+    `${GEMINI_API_URL}?key=${apiKey}`,
+    {
+      contents: [{
+        parts: [{
+          text: `Recommend 5 specific ${difficulty} level ${topic} problems from ${platform} platform.
 
-RESPONSE FORMAT (JSON):
+Respond ONLY with valid JSON (no markdown, no code blocks):
 {
   "problems": [
     {
-      "title": "Actual Problem Name",
+      "title": "Actual Problem Name from ${platform}",
       "description": "Brief problem description",
       "keyConcepts": ["concept1", "concept2"],
       "difficulty": "${difficulty}",
       "estimatedTime": "20-30 minutes",
-      "prerequisites": ["basic graph knowledge"]
+      "prerequisites": ["basic ${topic} knowledge"]
     }
   ]
-}`;
+}
 
-    const response = await axios.post(
-      OPENAI_API_URL,
-      {
-        model: "gpt-4",
-        messages: [
-          {
-            role: "system",
-            content: "You are a competitive programming expert. Provide specific, real problem recommendations."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
+Provide real problem names that exist on ${platform}.`
+        }]
+      }],
+      generationConfig: {
         temperature: 0.3,
-        max_tokens: 1000
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
-        }
+        maxOutputTokens: 1000
       }
-    );
+    },
+    {
+      headers: {
+        "Content-Type": "application/json"
+      },
+      timeout: 20000
+    }
+  );
 
-    const aiResponse = response.data.choices[0].message.content;
-    return JSON.parse(aiResponse);
-    
-  } catch (error) {
-    console.error("OpenAI Specific Recommendations Error:", error.message);
-    throw new Error("Failed to get specific recommendations");
-  }
+  const aiResponse = response.data.candidates[0].content.parts[0].text;
+  const cleanedResponse = aiResponse
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .trim();
+  
+  return JSON.parse(cleanedResponse);
 };
