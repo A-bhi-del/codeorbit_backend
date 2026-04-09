@@ -1,37 +1,43 @@
 import axios from "axios";
 
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-const makeOpenAIRequest = async (messages, modelName = "gpt-3.5-turbo", retryCount = 0) => {
+const makeGroqRequest = async (messages, modelName = "llama-3.3-70b-versatile", retryCount = 0) => {
   const maxRetries = 3;
   const baseDelay = 1000; // 1 second
   
   try {
-    console.log(`🤖 Trying OpenAI ${modelName}... (attempt ${retryCount + 1})`);
+    console.log(`🚀 Trying Groq ${modelName}... (attempt ${retryCount + 1})`);
     
     const response = await axios.post(
-      OPENAI_API_URL,
+      GROQ_API_URL,
       {
         model: modelName,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 1500,
+        max_tokens: 2000,
         stream: false
       },
       {
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
         },
         timeout: 30000
       }
     );
 
-    console.log(`✅ OpenAI ${modelName} responded successfully`);
+    console.log(`✅ Groq ${modelName} responded successfully`);
     return response.data;
     
   } catch (error) {
-    console.error(`❌ OpenAI ${modelName} failed:`, error.message);
+    console.error(`❌ Groq ${modelName} failed:`, error.message);
+    
+    // Log more details for debugging
+    if (error.response) {
+      console.error("Response status:", error.response.status);
+      console.error("Response data:", error.response.data);
+    }
     
     // Handle rate limiting with exponential backoff
     if (error.response?.status === 429 && retryCount < maxRetries) {
@@ -39,13 +45,13 @@ const makeOpenAIRequest = async (messages, modelName = "gpt-3.5-turbo", retryCou
       console.log(`🔄 Rate limit hit, waiting ${delay}ms before retry...`);
       
       await new Promise(resolve => setTimeout(resolve, delay));
-      return await makeOpenAIRequest(messages, modelName, retryCount + 1);
+      return await makeGroqRequest(messages, modelName, retryCount + 1);
     }
     
     // If still failing after retries, try fallback model
-    if (error.response?.status === 429 && modelName !== "gpt-3.5-turbo") {
-      console.log("🔄 Trying fallback model GPT-3.5-turbo...");
-      return await makeOpenAIRequest(messages, "gpt-3.5-turbo", 0);
+    if ((error.response?.status === 429 || error.response?.status === 400) && modelName !== "llama-3.1-8b-instant") {
+      console.log("🔄 Trying faster Groq model llama-3.1-8b-instant...");
+      return await makeGroqRequest(messages, "llama-3.1-8b-instant", 0);
     }
     
     // Re-throw error for final handling
@@ -343,9 +349,9 @@ const generateContextualRecommendations = (topics, currentLevel, nextDifficulty,
 export const analyzeAndRecommendProblems = async (recentProblems, userProfile) => {
   console.log(`📊 Analyzing ${recentProblems.length} real problems from /api/problems/all endpoint...`);
   
-  // Check if OpenAI API key is available
-  if (!process.env.OPENAI_API_KEY) {
-    console.log("⚠️ OpenAI API key not found, using intelligent fallback analysis...");
+  // Check if Groq API key is available
+  if (!process.env.GROQ_API_KEY) {
+    console.log("⚠️ Groq API key not found, using intelligent fallback analysis...");
     return generateIntelligentRecommendations(recentProblems, userProfile);
   }
   
@@ -385,30 +391,30 @@ Always respond in valid JSON format with specific, actionable recommendations.`
   ];
 
   try {
-    // Try different models with better error handling
+    // Try different Groq models with better error handling
     let response;
     try {
-      console.log("🤖 Requesting analysis from GPT-4o-mini (cost-effective)...");
-      response = await makeOpenAIRequest(messages, "gpt-4o-mini");
+      console.log("🚀 Requesting analysis from Groq Llama-3.3-70B (high-performance)...");
+      response = await makeGroqRequest(messages, "llama-3.3-70b-versatile");
     } catch (error) {
       if (error.response?.status === 429) {
-        console.log("💡 Rate limit reached. Your OpenAI API key may have exceeded its quota.");
+        console.log("💡 Rate limit reached. Your Groq API key may have exceeded its quota.");
         console.log("💡 Solutions:");
-        console.log("   1. Wait a few minutes and try again");
-        console.log("   2. Check your OpenAI billing dashboard");
-        console.log("   3. Upgrade your OpenAI plan if needed");
+        console.log("   1. Wait a few seconds and try again (Groq resets quickly)");
+        console.log("   2. Check your Groq usage dashboard");
+        console.log("   3. Groq has very generous free limits");
         console.log("🔄 Using intelligent local analysis instead...");
       }
       throw error;
     }
     
     const aiResponse = response.choices[0].message.content;
-    console.log("✅ OpenAI analysis completed successfully");
+    console.log("✅ Groq analysis completed successfully");
     
     // Clean the response to extract JSON
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.log("⚠️ Invalid JSON from OpenAI, using intelligent fallback analysis...");
+      console.log("⚠️ Invalid JSON from Groq, using intelligent fallback analysis...");
       return generateIntelligentRecommendations(recentProblems, userProfile);
     }
     
@@ -418,7 +424,7 @@ Always respond in valid JSON format with specific, actionable recommendations.`
     aiResult.analysis.totalProblemsAnalyzed = recentProblems.length;
     aiResult.analysis.dataSource = "Real user problems from /api/problems/all";
     aiResult.analysis.analysisTimestamp = new Date().toISOString();
-    aiResult.analysis.aiModel = "OpenAI GPT-4o-mini";
+    aiResult.analysis.aiModel = "Groq Llama-3.3-70B";
     
     console.log("🎯 AI Analysis Summary:");
     console.log("- Dominant Topics:", aiResult.analysis.dominantTopics);
@@ -428,13 +434,13 @@ Always respond in valid JSON format with specific, actionable recommendations.`
     return aiResult;
     
   } catch (error) {
-    console.error("❌ OpenAI API Error:", error.message);
+    console.error("❌ Groq API Error:", error.message);
     
     if (error.response?.status === 429) {
-      console.log("💡 OpenAI Rate Limit Solutions:");
-      console.log("   • Wait 1-2 minutes and try again");
-      console.log("   • Check your OpenAI usage at https://platform.openai.com/usage");
-      console.log("   • Consider upgrading your OpenAI plan");
+      console.log("💡 Groq Rate Limit Solutions:");
+      console.log("   • Wait 10-30 seconds and try again (Groq resets very quickly)");
+      console.log("   • Check your Groq usage at https://console.groq.com/");
+      console.log("   • Groq has very generous free tier limits");
       console.log("   • The system will use intelligent local analysis as backup");
     }
     
@@ -442,7 +448,7 @@ Always respond in valid JSON format with specific, actionable recommendations.`
     const fallbackResult = generateIntelligentRecommendations(recentProblems, userProfile);
     
     // Add fallback indicator
-    fallbackResult.analysis.aiModel = "Intelligent Local Analysis (OpenAI unavailable)";
+    fallbackResult.analysis.aiModel = "Intelligent Local Analysis (Groq unavailable)";
     fallbackResult.analysis.fallbackReason = error.response?.status === 429 ? "Rate limit exceeded" : "API error";
     
     return fallbackResult;
