@@ -17,6 +17,8 @@ export const calculateWeeklyTrend = (activity) => {
   }
 
   // Fill in actual activity data
+  // LeetCode's count represents total submissions (not unique problems)
+  // We normalize it to show approximate problems solved per day
   if (activity && activity.length > 0) {
     activity.forEach((a) => {
       const activityDate = new Date(a.date);
@@ -28,7 +30,12 @@ export const calculateWeeklyTrend = (activity) => {
       if (diffDays >= 0 && diffDays < 7) {
         const dayIndex = 6 - diffDays;
         if (last7Days[dayIndex]) {
-          last7Days[dayIndex].problems += a.count;
+          // Normalize the count: assume average 3-5 submissions per problem
+          // This gives a more realistic "problems solved" count
+          const estimatedProblems = Math.ceil(a.count / 4);
+          // Cap at 15 problems per day as a reasonable maximum
+          const problemCount = Math.min(estimatedProblems, 6);
+          last7Days[dayIndex].problems += problemCount;
         }
       }
     });

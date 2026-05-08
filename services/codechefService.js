@@ -33,34 +33,28 @@ export const getCodeChefData = async (username) => {
       let stars = '0★';
       let problemsSolved = 0;
       
-      // Look for "Total Problems Solved: XX"
       const totalProblemsMatch = bodyText.match(/Total\s+Problems?\s+Solved[:\s]*(\d+)/i);
       if (totalProblemsMatch) {
         problemsSolved = parseInt(totalProblemsMatch[1]);
       }
       
-      // Look for current rating - more specific pattern
-      // Pattern: "1439 (-16)" or just "1439" followed by rating context
       const currentRatingMatch = bodyText.match(/(\d{3,4})\s*\([+-]\d+\)/);
       if (currentRatingMatch) {
         rating = parseInt(currentRatingMatch[1]);
       }
       
-      // Look for highest rating
       const highestMatch = bodyText.match(/Highest\s+Rating[:\s]*(\d+)/i);
       if (highestMatch) {
         highestRating = parseInt(highestMatch[1]);
       } else {
-        highestRating = rating; // Default to current if not found
+        highestRating = rating; 
       }
       
-      // Look for stars - pattern like "2★abhi_12547839"
       const starsMatch = bodyText.match(/(\d+)★/);
       if (starsMatch) {
         stars = starsMatch[1] + '★';
       }
       
-      // Alternative: Look for "CodeChef Rating" section
       if (!rating) {
         const ratingSection = bodyText.match(/(\d{3,4})\s*\(Div\s+\d+\)/i);
         if (ratingSection) {

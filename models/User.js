@@ -127,6 +127,80 @@ const userSchema = new mongoose.Schema({
     default: 'local'
   },
 
+  // Social Profile Fields
+  username: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    lowercase: true
+  },
+  uniqueId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  bio: {
+    type: String,
+    maxlength: 500
+  },
+  profileImage: String,
+  bannerImage: String,
+  accountType: {
+    type: String,
+    enum: ["public", "private"],
+    default: "public"
+  },
+
+  // Social Graph
+  followers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  following: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  friends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  friendRequestsSent: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  friendRequestsReceived: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  blockedUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+
+  // Online Presence
+  onlineStatus: {
+    type: Boolean,
+    default: false
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now
+  },
+  socketId: String,
+
+  // Stream Integration
+  streamUserId: String,
+  streamToken: String,
+
+  // Social Links
+  socialLinks: {
+    github: String,
+    linkedin: String,
+    portfolio: String,
+    twitter: String
+  },
+
   activity: [activitySchema],
   leetcode: leetcodeSchema,
   codeforces: codeforcesSchema,
@@ -142,5 +216,11 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// Indexes for search optimization
+userSchema.index({ username: 1 });
+userSchema.index({ uniqueId: 1 });
+userSchema.index({ displayName: 'text', username: 'text', bio: 'text' });
+userSchema.index({ onlineStatus: 1 });
 
 export default mongoose.model("User", userSchema);

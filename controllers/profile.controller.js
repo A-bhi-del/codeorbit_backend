@@ -24,7 +24,13 @@ export const getCurrentUserProfile = async (req, res) => {
       displayName: user.displayName,
       photoURL: user.photoURL,
       provider: user.provider,
+      username: user.username,
+      bio: user.bio,
+      accountType: user.accountType,
+      socialLinks: user.socialLinks,
       lastSyncedAt: user.lastSyncedAt,
+      followers: user.followers || [],
+      following: user.following || [],
       platforms: {
         leetcode: user.leetcode ? {
           username: user.leetcode.username,
@@ -48,6 +54,20 @@ export const getCurrentUserProfile = async (req, res) => {
           publicRepos: user.github.publicRepos,
           totalStars: user.github.totalStars,
           totalContributions: user.github.totalContributions
+        } : null,
+        codechef: user.codechef ? {
+          username: user.codechef.username,
+          rating: user.codechef.rating,
+          highestRating: user.codechef.highestRating,
+          stars: user.codechef.stars,
+          globalRank: user.codechef.globalRank,
+          countryRank: user.codechef.countryRank
+        } : null,
+        gfg: user.gfg ? {
+          username: user.gfg.username,
+          score: user.gfg.score,
+          problemsSolved: user.gfg.problemsSolved,
+          codingScore: user.gfg.codingScore
         } : null
       },
       stats: {

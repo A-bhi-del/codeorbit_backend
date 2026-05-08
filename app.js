@@ -17,6 +17,12 @@ import codechefRoutes from "./routes/codechef.routes.js";
 import gfgRoutes from "./routes/gfg.routes.js";
 import problemsRoutes from "./routes/problems.routes.js";
 import recommendationsRoutes from "./routes/recommendations.routes.js";
+import usersRoutes from "./routes/users.routes.js";
+import friendsRoutes from "./routes/friends.routes.js";
+import notificationsRoutes from "./routes/notifications.routes.js";
+import pingRoutes from "./routes/ping.routes.js";
+import roomsRoutes from "./routes/rooms.routes.js";
+import streamRoutes from "./routes/stream.routes.js";
 
 dotenv.config();
 connectDB();
@@ -24,24 +30,29 @@ initializeFirebase();
 
 const app = express();
 
-// CORS configuration
+// CORS configuration - CRITICAL: Must include PATCH method
 const corsOptions = {
   origin: [
     "http://localhost:3000",
+    "http://localhost:3001",
     "https://codeorbit-sage.vercel.app",
     "https://codeorbit-git-main-arpit-srivastavas-projects-4aa240ca.vercel.app",
     "https://codeorbit-9eqzasyrb-arpit-srivastavas-projects-4aa240ca.vercel.app"
   ],
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id']
 };
 
-// Apply CORS middleware
+// Apply CORS middleware FIRST - before any routes
 app.use(cors(corsOptions));
+
+// Body parser
 app.use(express.json());
 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/leetcode", leetcodeRoutes);
 app.use("/api/codeforces", codeforcesRoutes);
@@ -56,5 +67,11 @@ app.use("/api/codechef", codechefRoutes);
 app.use("/api/gfg", gfgRoutes);
 app.use("/api/problems", problemsRoutes);
 app.use("/api/recommendations", recommendationsRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/api/friends", friendsRoutes);
+app.use("/api/notifications", notificationsRoutes);
+app.use("/api/ping", pingRoutes);
+app.use("/api/rooms", roomsRoutes);
+app.use("/api/stream", streamRoutes);
 
 export default app;

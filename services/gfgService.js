@@ -54,80 +54,78 @@ export const getGFGData = async (username) => {
       let problemsSolved = 0;
       let instituteRank = 0;
       
-      // Pattern 1: Institute Rank
-      const instituteMatch = bodyText.match(/Institute\s+Rank[:\s]*(\d+)/i);
-      if (instituteMatch) {
-        instituteRank = parseInt(instituteMatch[1]);
-      }
+      // Split text into lines for better parsing
+      const lines = bodyText.split('\n').map(line => line.trim());
       
-      // Pattern 2: Coding Score (not the tab name, the actual score)
-      const scorePatterns = [
-        /Coding\s+Score[:\s]*(\d+)/i,
-        /Score[:\s]*(\d+)/i,
-        /Institute\s+Rank[:\s]*\d+[^\d]*(\d+)/i // Score often appears after Institute Rank
-      ];
-      
-      for (const pattern of scorePatterns) {
-        const match = bodyText.match(pattern);
-        if (match) {
-          const num = parseInt(match[1]);
-          // Coding scores are typically between 1-10000
-          if (num > 0 && num < 10000 && num !== 544) {
-            score = num;
-            break;
-          }
-        }
-      }
-      
-      // Pattern 3: Problems Solved
-      const problemsPatterns = [
-        /Total\s+Problems?\s+Solved[:\s]*(\d+)/i,
-        /Problems?\s+Solved[:\s]*(\d+)/i,
-        /(\d+)\s+Problems?\s+Solved/i,
-        /No\.\s+of\s+Problems?\s+Solved[:\s]*(\d+)/i,
-        /Solved[:\s]*(\d+)\s+Problems?/i
-      ];
-      
-      for (const pattern of problemsPatterns) {
-        const match = bodyText.match(pattern);
-        if (match) {
-          const num = parseInt(match[1]);
-          if (num > 0 && num < 5000 && num !== score) {
-            problemsSolved = num;
-            break;
-          }
-        }
-      }
-      
-      // If still no data, look in all text nodes for number patterns
-      if (!score && !problemsSolved) {
-        const allText = document.body.innerText;
-        const lines = allText.split('\n');
+      // Look for "Problems Solved" followed by a number
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
         
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          
-          // Look for "Coding Score" followed by a number in next few lines
-          if (line.includes('Coding Score') && i + 1 < lines.length) {
-            const nextLine = lines[i + 1].trim();
-            const numMatch = nextLine.match(/^(\d+)$/);
-            if (numMatch) {
-              const num = parseInt(numMatch[1]);
-              if (num > 0 && num < 10000) {
-                score = num;
-              }
+        // Pattern 1: "Problems Solved" on one line, number on next line
+        if (line === 'Problems Solved' && i + 1 < lines.length) {
+          const nextLine = lines[i + 1];
+          const numMatch = nextLine.match(/^(\d+)$/);
+          if (numMatch) {
+            problemsSolved = parseInt(numMatch[1]);
+            console.log(`Found Problems Solved: ${problemsSolved}`);
+          }
+        }
+        
+        // Pattern 2: "Coding Score" on one line, number on next line
+        if (line === 'Coding Score' && i + 1 < lines.length) {
+          const nextLine = lines[i + 1];
+          const numMatch = nextLine.match(/^(\d+)$/);
+          if (numMatch) {
+            score = parseInt(numMatch[1]);
+            console.log(`Found Coding Score: ${score}`);
+          }
+        }
+        
+        // Pattern 3: "Institute Rank" on one line, number on next line
+        if (line === 'Institute Rank' && i + 1 < lines.length) {
+          const nextLine = lines[i + 1];
+          const numMatch = nextLine.match(/^(\d+)$/);
+          if (numMatch) {
+            instituteRank = parseInt(numMatch[1]);
+            console.log(`Found Institute Rank: ${instituteRank}`);
+          }
+        }
+      }
+      
+      // Fallback: Try regex patterns if line-by-line didn't work
+      if (!problemsSolved) {
+        const problemsPatterns = [
+          /Problems?\s+Solved[:\s]*(\d+)/i,
+          /(\d+)\s+Problems?\s+Solved/i,
+          /Total\s+Problems?\s+Solved[:\s]*(\d+)/i,
+        ];
+        
+        for (const pattern of problemsPatterns) {
+          const match = bodyText.match(pattern);
+          if (match) {
+            const num = parseInt(match[1]);
+            if (num > 0 && num < 5000) {
+              problemsSolved = num;
+              console.log(`Found Problems Solved (regex): ${problemsSolved}`);
+              break;
             }
           }
-          
-          // Look for "Problems Solved" followed by a number
-          if (line.includes('Problems Solved') && i + 1 < lines.length) {
-            const nextLine = lines[i + 1].trim();
-            const numMatch = nextLine.match(/^(\d+)$/);
-            if (numMatch) {
-              const num = parseInt(numMatch[1]);
-              if (num > 0 && num < 5000) {
-                problemsSolved = num;
-              }
+        }
+      }
+      
+      if (!score) {
+        const scorePatterns = [
+          /Coding\s+Score[:\s]*(\d+)/i,
+        ];
+        
+        for (const pattern of scorePatterns) {
+          const match = bodyText.match(pattern);
+          if (match) {
+            const num = parseInt(match[1]);
+            if (num > 0 && num < 10000) {
+              score = num;
+              console.log(`Found Coding Score (regex): ${score}`);
+              break;
             }
           }
         }
@@ -142,11 +140,15 @@ export const getGFGData = async (username) => {
 
     await browser.close();
 
-    console.log(`GFG data for ${username}:`, {
+    console.log(`✅ GFG data successfully fetched for ${username}:`, {
       score: data.score,
       problemsSolved: data.problemsSolved,
       instituteRank: data.instituteRank
     });
+
+    if (data.problemsSolved === 0) {
+      console.warn(`⚠️ WARNING: Problems Solved is 0 for ${username}. This might indicate scraping failed.`);
+    }
 
     return {
       username,
