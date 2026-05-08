@@ -644,6 +644,67 @@ GET /recommendations/learning-path
 }
 ```
 
+### 18. Get Learning Path Suggestions (Real-time Data)
+```http
+GET /recommendations/learning-path
+```
+
+**Request Body:** None
+
+**Response:**
+```json
+{
+  "success": true,
+  "learningPath": {
+    "currentLevel": "intermediate",
+    "totalPhases": 2,
+    "estimatedDuration": "7 weeks",
+    "phases": [
+      {
+        "phase": "Strengthen Core Skills",
+        "duration": "2-3 weeks",
+        "focus": "Deepen understanding of array and simulation",
+        "topics": ["array", "simulation", "divide_and_conquer"],
+        "goals": [
+          "Master advanced array techniques",
+          "Solve medium problems consistently",
+          "Optimize solutions for better complexity",
+          "Learn pattern recognition"
+        ],
+        "milestones": ["Solve 30+ medium problems", "Achieve 80%+ success rate"]
+      }
+    ],
+    "nextSteps": [
+      "Focus on array and simulation problems",
+      "Aim to solve 2-3 problems daily",
+      "Track progress and adjust based on performance"
+    ],
+    "recommendedResources": [
+      "LeetCode problem sets by topic",
+      "Algorithm visualization tools",
+      "Competitive programming books"
+    ]
+  },
+  "userProfile": {
+    "totalSolved": 432,
+    "platforms": ["LeetCode"],
+    "dominantTopics": ["array", "simulation", "divide_and_conquer"]
+  },
+  "analysis": {
+    "dominantTopics": ["array", "simulation", "divide_and_conquer"],
+    "currentDifficultyLevel": "intermediate",
+    "totalProblemsAnalyzed": 25,
+    "topicDistribution": [
+      {"topic": "array", "count": 8},
+      {"topic": "simulation", "count": 6}
+    ]
+  },
+  "generatedAt": "2026-04-09T06:00:00.000Z",
+  "dataSource": "Real-time analysis of recent solved problems",
+  "message": "Learning path generated based on your recent problem-solving patterns"
+}
+```
+
 ### 19. Get Difficulty Progression Analysis
 ```http
 GET /recommendations/difficulty-progression?platform=leetcode
