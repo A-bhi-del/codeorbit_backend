@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
 import Notification from "../models/Notification.js";
@@ -27,58 +28,72 @@ export const sendFriendRequest = async (req, res) => {
       return res.status(403).json({ message: "Cannot send request" });
     }
 
-    // Check if already friends/following
-    if (sender.following.includes(receiverId)) {
+    // Check if already friends
+    if (sender.friends.some(id => id.toString() === receiverId)) {
+      return res.status(400).json({ message: "Already friends with this user" });
+    }
+
+    // Check if already following
+    if (sender.following.some(id => id.toString() === receiverId)) {
       return res.status(400).json({ message: "Already following this user" });
     }
 
-    // Check for existing pending request
+    // Check for existing pending request in EITHER direction (A→B or B→A)
     const existingRequest = await FriendRequest.findOne({
-      sender: senderId,
-      receiver: receiverId,
-      status: 'pending'
+      $or: [
+        { sender: senderId, receiver: receiverId, status: 'pending' },
+        { sender: receiverId, receiver: senderId, status: 'pending' }
+      ]
     });
 
     if (existingRequest) {
-      return res.status(400).json({ message: "Request already sent" });
+      if (existingRequest.sender.toString() === senderId.toString()) {
+        return res.status(400).json({ message: "Request already sent" });
+      } else {
+        return res.status(400).json({ message: "This user has already sent you a request. Please check your friend requests." });
+      }
     }
 
-    // For public accounts, follow instantly
+    // For public accounts, create bidirectional friendship instantly
     if (receiver.accountType === 'public') {
+      const senderIdStr = senderId.toString();
+      const receiverIdStr = receiverId.toString();
+      
+      // Sender → Receiver
       sender.following.push(receiverId);
+      sender.followers.push(receiverId);
+      if (!sender.friends.some(id => id.toString() === receiverIdStr)) {
+        sender.friends.push(receiverId);
+      }
+      
+      // Receiver → Sender (AUTOMATIC)
       receiver.followers.push(senderId);
-      
-      // Check if mutual relationship exists (receiver also follows sender)
-      const isMutual = receiver.following.includes(senderId);
-      
-      // Only add to friends array if mutual
-      if (isMutual) {
-        if (!sender.friends.includes(receiverId)) {
-          sender.friends.push(receiverId);
-        }
-        if (!receiver.friends.includes(senderId)) {
-          receiver.friends.push(senderId);
-        }
+      receiver.following.push(senderId);
+      if (!receiver.friends.some(id => id.toString() === senderIdStr)) {
+        receiver.friends.push(senderId);
       }
       
       await Promise.all([sender.save(), receiver.save()]);
+
+      console.log('[PUBLIC ACCOUNT] Sender friends:', sender.friends.map(id => id.toString()));
+      console.log('[PUBLIC ACCOUNT] Receiver friends:', receiver.friends.map(id => id.toString()));
 
       // Create notification
       const notification = await Notification.create({
         sender: senderId,
         receiver: receiverId,
-        type: 'follow',
-        title: 'New Follower',
-        message: `${sender.displayName || sender.username} started following you`
+        type: 'new_friend',
+        title: 'New Friend',
+        message: `${sender.displayName || sender.username} is now your friend`
       });
 
       // Emit realtime notification
       emitNotification(receiverId.toString(), notification);
 
       return res.json({ 
-        message: "Following user",
+        message: "You are now friends!",
         type: 'instant',
-        isMutual: isMutual
+        isMutual: true
       });
     }
 
@@ -156,6 +171,9 @@ export const cancelFriendRequest = async (req, res) => {
 
 // Accept friend request
 export const acceptFriendRequest = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const receiverId = req.user;
     const { id: senderId } = req.params;
@@ -166,9 +184,10 @@ export const acceptFriendRequest = async (req, res) => {
       sender: senderId,
       receiver: receiverId,
       status: 'pending'
-    });
+    }).session(session);
 
     if (!friendRequest) {
+      await session.abortTransaction();
       console.log('[ACCEPT REQUEST] Request not found');
       return res.status(404).json({ message: "Request not found" });
     }
@@ -176,43 +195,51 @@ export const acceptFriendRequest = async (req, res) => {
     // Update request status
     friendRequest.status = 'accepted';
     friendRequest.respondedAt = new Date();
-    await friendRequest.save();
+    await friendRequest.save({ session });
     console.log('[ACCEPT REQUEST] Request status updated to accepted');
 
-    // Update both users with duplicate prevention
+    // Get both users
     const [sender, receiver] = await Promise.all([
-      User.findById(senderId),
-      User.findById(receiverId)
+      User.findById(senderId).session(session),
+      User.findById(receiverId).session(session)
     ]);
 
     if (!sender || !receiver) {
+      await session.abortTransaction();
       console.log('[ACCEPT REQUEST] Sender or receiver not found');
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Add to following/followers arrays
-    if (!sender.following.includes(receiverId)) {
+    // BIDIRECTIONAL FRIENDSHIP: Both users become friends immediately
+    
+    // Convert to string for comparison
+    const senderIdStr = senderId.toString();
+    const receiverIdStr = receiverId.toString();
+    
+    // Sender → Receiver relationship
+    if (!sender.following.some(id => id.toString() === receiverIdStr)) {
       sender.following.push(receiverId);
     }
-    if (!receiver.followers.includes(senderId)) {
+    if (!sender.friends.some(id => id.toString() === receiverIdStr)) {
+      sender.friends.push(receiverId);
+    }
+    if (!sender.followers.some(id => id.toString() === receiverIdStr)) {
+      sender.followers.push(receiverId);
+    }
+
+    // Receiver → Sender relationship (AUTOMATIC)
+    if (!receiver.followers.some(id => id.toString() === senderIdStr)) {
       receiver.followers.push(senderId);
     }
-
-    // Check if mutual relationship exists (both follow each other)
-    const isMutual = receiver.following.includes(senderId);
-    console.log('[ACCEPT REQUEST] Is mutual relationship:', isMutual);
-
-    // Only add to friends array if mutual relationship
-    if (isMutual) {
-      if (!sender.friends.includes(receiverId)) {
-        sender.friends.push(receiverId);
-        console.log('[ACCEPT REQUEST] Added receiver to sender friends');
-      }
-      if (!receiver.friends.includes(senderId)) {
-        receiver.friends.push(senderId);
-        console.log('[ACCEPT REQUEST] Added sender to receiver friends');
-      }
+    if (!receiver.friends.some(id => id.toString() === senderIdStr)) {
+      receiver.friends.push(senderId);
     }
+    if (!receiver.following.some(id => id.toString() === senderIdStr)) {
+      receiver.following.push(senderId);
+    }
+    
+    console.log('[ACCEPT REQUEST] Sender friends after:', sender.friends.map(id => id.toString()));
+    console.log('[ACCEPT REQUEST] Receiver friends after:', receiver.friends.map(id => id.toString()));
 
     // Remove from request arrays
     sender.friendRequestsSent = sender.friendRequestsSent.filter(
@@ -222,17 +249,24 @@ export const acceptFriendRequest = async (req, res) => {
       id => id.toString() !== senderId.toString()
     );
 
-    await Promise.all([sender.save(), receiver.save()]);
-    console.log('[ACCEPT REQUEST] Users updated successfully');
+    await Promise.all([
+      sender.save({ session }),
+      receiver.save({ session })
+    ]);
+    console.log('[ACCEPT REQUEST] Both users updated with bidirectional friendship');
 
-    // Create notification
+    // Commit the transaction
+    await session.commitTransaction();
+    console.log('[ACCEPT REQUEST] Transaction committed successfully');
+
+    // Create notification (outside transaction - non-critical)
     try {
       const notification = await Notification.create({
         sender: receiverId,
         receiver: senderId,
         type: 'request_accepted',
         title: 'Request Accepted',
-        message: `${receiver.displayName || receiver.username} accepted your follow request`
+        message: `${receiver.displayName || receiver.username} accepted your friend request`
       });
       console.log('[ACCEPT REQUEST] Notification created');
 
@@ -245,16 +279,19 @@ export const acceptFriendRequest = async (req, res) => {
     }
 
     res.json({ 
-      message: "Request accepted",
+      message: "Friend request accepted. You are now friends!",
       success: true,
-      isMutual: isMutual
+      isMutual: true
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("[ACCEPT REQUEST] Error:", error);
     res.status(500).json({ 
       message: "Server error",
       error: error.message 
     });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -295,39 +332,58 @@ export const rejectFriendRequest = async (req, res) => {
   }
 };
 
-// Remove friend/unfollow
+// Remove friend/unfollow (bidirectional)
 export const removeFriend = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const userId = req.user;
     const { id: friendId } = req.params;
 
     const [user, friend] = await Promise.all([
-      User.findById(userId),
-      User.findById(friendId)
+      User.findById(userId).session(session),
+      User.findById(friendId).session(session)
     ]);
 
     if (!friend) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Remove from following/followers
-    user.following = user.following.filter(id => id.toString() !== friendId);
-    friend.followers = friend.followers.filter(id => id.toString() !== userId.toString());
+    const userIdStr = userId.toString();
+    const friendIdStr = friendId.toString();
+
+    // Remove bidirectional friendship
+    user.following = user.following.filter(id => id.toString() !== friendIdStr);
+    user.followers = user.followers.filter(id => id.toString() !== friendIdStr);
+    user.friends = user.friends.filter(id => id.toString() !== friendIdStr);
     
-    // Remove from friends array (since no longer mutual)
-    user.friends = user.friends.filter(id => id.toString() !== friendId);
-    friend.friends = friend.friends.filter(id => id.toString() !== userId.toString());
+    friend.followers = friend.followers.filter(id => id.toString() !== userIdStr);
+    friend.following = friend.following.filter(id => id.toString() !== userIdStr);
+    friend.friends = friend.friends.filter(id => id.toString() !== userIdStr);
 
-    await Promise.all([user.save(), friend.save()]);
+    await Promise.all([
+      user.save({ session }),
+      friend.save({ session })
+    ]);
 
-    res.json({ message: "Unfollowed successfully" });
+    await session.commitTransaction();
+
+    console.log('[REMOVE FRIEND] User friends after:', user.friends.map(id => id.toString()));
+    console.log('[REMOVE FRIEND] Friend friends after:', friend.friends.map(id => id.toString()));
+
+    res.json({ message: "Friendship removed successfully" });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Remove friend error:", error);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    session.endSession();
   }
 };
 
-// Get friends list - Only mutual followers (both follow each other)
+// Get friends list - Users in the friends array
 export const getFriendsList = async (req, res) => {
   try {
     const userId = req.user;
@@ -335,28 +391,17 @@ export const getFriendsList = async (req, res) => {
     console.log('[GET FRIENDS LIST] User ID:', userId);
 
     const user = await User.findById(userId)
-      .populate('followers', 'displayName username photoURL profileImage onlineStatus lastSeen email')
-      .populate('following', 'displayName username photoURL profileImage onlineStatus lastSeen email')
+      .populate('friends', 'displayName username photoURL profileImage onlineStatus lastSeen email')
       .lean();
 
     console.log('[GET FRIENDS LIST] User found:', !!user);
-    console.log('[GET FRIENDS LIST] Followers count:', user?.followers?.length || 0);
-    console.log('[GET FRIENDS LIST] Following count:', user?.following?.length || 0);
+    console.log('[GET FRIENDS LIST] Friends count:', user?.friends?.length || 0);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Find mutual friends - users who are in BOTH followers AND following arrays
-    const followerIds = new Set(user.followers.map(f => f._id.toString()));
-    const mutualFriends = user.following.filter(followingUser => 
-      followerIds.has(followingUser._id.toString())
-    );
-
-    console.log('[GET FRIENDS LIST] Mutual friends count:', mutualFriends.length);
-    console.log('[GET FRIENDS LIST] Mutual friends:', mutualFriends.map(f => f.email || f.username));
-
-    res.json({ friends: mutualFriends });
+    res.json({ friends: user.friends || [] });
   } catch (error) {
     console.error("[GET FRIENDS LIST] Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });

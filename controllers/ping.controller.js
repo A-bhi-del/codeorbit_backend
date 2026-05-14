@@ -30,10 +30,10 @@ export const sendPingRequest = async (req, res) => {
     console.log('[SEND PING] Sender friends:', sender.friends);
     console.log('[SEND PING] Checking if receiver is friend:', sender.friends.some(id => id.toString() === receiverId));
 
-    // Check if they are friends (mutual followers)
+    // Check if they are friends (bidirectional friendship)
     const isFriend = sender.friends.some(friendId => friendId.toString() === receiverId);
     if (!isFriend) {
-      return res.status(403).json({ message: "Can only ping mutual friends" });
+      return res.status(403).json({ message: "Can only ping friends" });
     }
 
     // Check if receiver is online
