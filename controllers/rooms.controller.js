@@ -1,5 +1,6 @@
 import Room from "../models/Room.js";
 import User from "../models/User.js";
+import { deleteStreamChannel } from "../services/stream.service.js";
 
 // Get room by ID
 export const getRoomById = async (req, res) => {
@@ -77,6 +78,11 @@ export const closeRoom = async (req, res) => {
     room.active = false;
     room.closedAt = new Date();
     await room.save();
+
+    // Delete Stream channel if exists
+    if (room.streamChannelId) {
+      await deleteStreamChannel('messaging', room.streamChannelId);
+    }
 
     res.json({ message: "Room closed" });
   } catch (error) {

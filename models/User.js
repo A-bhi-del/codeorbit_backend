@@ -181,7 +181,7 @@ const userSchema = new mongoose.Schema({
   // Online Presence
   onlineStatus: {
     type: Boolean,
-    default: false
+    default: true
   },
   lastSeen: {
     type: Date,

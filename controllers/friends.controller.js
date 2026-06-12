@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import FriendRequest from "../models/FriendRequest.js";
 import Notification from "../models/Notification.js";
-import { emitNotification } from "../sockets/socketManager.js";
+import { sendStreamNotification, sendFriendRequestNotification } from "../services/stream.service.js";
 
 // Send friend/follow request
 export const sendFriendRequest = async (req, res) => {
@@ -87,8 +87,13 @@ export const sendFriendRequest = async (req, res) => {
         message: `${sender.displayName || sender.username} is now your friend`
       });
 
-      // Emit realtime notification
-      emitNotification(receiverId.toString(), notification);
+      // Send Stream notification
+      await sendStreamNotification(receiverId.toString(), {
+        type: 'new_friend',
+        title: 'New Friend',
+        message: `${sender.displayName || sender.username} is now your friend`,
+        metadata: {}
+      });
 
       return res.json({ 
         message: "You are now friends!",
@@ -119,8 +124,15 @@ export const sendFriendRequest = async (req, res) => {
       metadata: { requestId: friendRequest._id.toString() }
     });
 
-    // Emit realtime notification
-    emitNotification(receiverId.toString(), notification);
+    // Send Stream notification
+    await sendFriendRequestNotification(receiverId.toString(), {
+      userId: senderId.toString(),
+      displayName: sender.displayName,
+      username: sender.username,
+      photoURL: sender.photoURL,
+      profileImage: sender.profileImage,
+      requestId: friendRequest._id.toString()
+    });
 
     res.json({ 
       message: "Follow request sent",
@@ -270,9 +282,14 @@ export const acceptFriendRequest = async (req, res) => {
       });
       console.log('[ACCEPT REQUEST] Notification created');
 
-      // Emit realtime notification
-      emitNotification(senderId.toString(), notification);
-      console.log('[ACCEPT REQUEST] Notification emitted');
+      // Send Stream notification
+      await sendStreamNotification(senderId.toString(), {
+        type: 'request_accepted',
+        title: 'Request Accepted',
+        message: `${receiver.displayName || receiver.username} accepted your friend request`,
+        metadata: {}
+      });
+      console.log('[ACCEPT REQUEST] Notification sent via Stream');
     } catch (notifError) {
       console.error('[ACCEPT REQUEST] Notification error:', notifError);
       // Don't fail the request if notification fails

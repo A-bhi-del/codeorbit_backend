@@ -270,84 +270,165 @@ POST /api/stream/initialize
 
 ---
 
-## Socket.IO Events
+## Stream.io Real-Time Events
 
 ### Connection
 ```javascript
-const socket = io('http://localhost:5000', {
-  auth: {
-    token: 'jwt_token'
-  }
-});
+import { StreamChat } from 'stream-chat';
+
+// Get credentials from /api/stream/token
+const { token, apiKey, userId } = await getStreamToken();
+
+// Initialize and connect
+const client = StreamChat.getInstance(apiKey);
+await client.connectUser(
+  { id: userId },
+  token
+);
+```
+
+### Notification Channel
+Subscribe to personal notification channel for friend requests, pings, and status updates:
+
+```javascript
+const notificationChannel = client.channel('messaging', `notifications-${userId}`);
+await notificationChannel.watch();
 ```
 
 ### Events to Listen
 
 #### User Presence
-- `user_online` - Friend came online
-- `user_offline` - Friend went offline
+```javascript
+notificationChannel.on('user_online', (event) => {
+  console.log('Friend online:', event.data.userId);
+});
 
-#### Notifications
-- `notification_received` - New notification
+notificationChannel.on('user_offline', (event) => {
+  console.log('Friend offline:', event.data.userId);
+});
+```
 
 #### Friend Requests
-- `friend_request_received` - New friend request
-- `friend_request_accepted` - Request accepted
+```javascript
+notificationChannel.on('friend_request_received', (event) => {
+  const { sender } = event.data;
+  console.log('Friend request from:', sender.displayName);
+});
+
+notificationChannel.on('request_accepted', (event) => {
+  console.log('Friend request accepted');
+});
+```
 
 #### Ping Requests
-- `ping_request` - New ping request
-- `ping_accepted` - Ping accepted with room details
-- `ping_rejected` - Ping rejected
+```javascript
+notificationChannel.on('ping_request', (event) => {
+  const { pingRequest } = event.data;
+  console.log('Ping from:', pingRequest.displayName);
+});
 
-#### Room Events
-- `user_joined_room` - User joined room
-- `user_left_room` - User left room
+notificationChannel.on('ping_accepted', (event) => {
+  const { roomId, streamChannelId } = event.data;
+  console.log('Ping accepted, join room:', roomId);
+});
+
+notificationChannel.on('ping_rejected', (event) => {
+  console.log('Ping was rejected');
+});
+```
+
+### Room Channel
+Join a room channel for chat, canvas, and video collaboration:
+
+```javascript
+const roomChannel = client.channel('messaging', `room-${roomId}`);
+await roomChannel.watch();
+```
+
+#### Messages
+```javascript
+// Send message
+await roomChannel.sendMessage({
+  text: 'Hello!',
+  user_id: userId
+});
+
+// Receive messages
+roomChannel.on('message.new', (event) => {
+  console.log('New message:', event.message.text);
+  console.log('From:', event.user.name);
+});
+```
 
 #### Typing Indicators
-- `typing_start` - User started typing
-- `typing_stop` - User stopped typing
-
-#### Messages
-- `receive_message` - New message in room
-
-#### Canvas Events
-- `canvas_draw` - Drawing stroke
-- `canvas_erase` - Erase action
-- `canvas_clear` - Clear canvas
-
-#### Video Call
-- `video_call_started` - Video call started
-- `video_call_ended` - Video call ended
-
-### Events to Emit
-
-#### Room Management
 ```javascript
-socket.emit('join_room', { roomId });
-socket.emit('leave_room', { roomId });
+// Send typing indicator
+await roomChannel.keystroke();
+
+// Listen for typing
+roomChannel.on('typing.start', (event) => {
+  console.log('User typing:', event.user.name);
+});
+
+roomChannel.on('typing.stop', (event) => {
+  console.log('User stopped typing:', event.user.name);
+});
 ```
 
-#### Typing
+#### Custom Events (Canvas, Video)
 ```javascript
-socket.emit('typing_start', { roomId });
-socket.emit('typing_stop', { roomId });
+// Send custom event
+await roomChannel.sendEvent({
+  type: 'canvas_draw',
+  data: { stroke: strokeData }
+});
+
+await roomChannel.sendEvent({
+  type: 'video_call_started',
+  data: { userId }
+});
+
+// Listen to custom events
+roomChannel.on('canvas_draw', (event) => {
+  console.log('Drawing:', event.data.stroke);
+});
+
+roomChannel.on('canvas_erase', (event) => {
+  console.log('Erasing:', event.data.area);
+});
+
+roomChannel.on('canvas_clear', (event) => {
+  console.log('Canvas cleared');
+});
+
+roomChannel.on('video_call_started', (event) => {
+  console.log('Video call started by:', event.data.userId);
+});
+
+roomChannel.on('video_call_ended', (event) => {
+  console.log('Video call ended');
+});
 ```
 
-#### Messages
+### Video Calling
+Use Stream Video SDK for video calls:
+
 ```javascript
-socket.emit('send_message', { roomId, message });
+import { StreamVideoClient } from '@stream-io/video-react-sdk';
+
+const videoClient = new StreamVideoClient({
+  apiKey,
+  user: { id: userId },
+  token
+});
+
+const call = videoClient.call('default', `room-${roomId}`);
+await call.join({ create: true });
 ```
 
-#### Canvas
+### Disconnect
 ```javascript
-socket.emit('canvas_draw', { roomId, stroke });
-socket.emit('canvas_erase', { roomId, area });
-socket.emit('canvas_clear', { roomId });
-```
 
-#### Video
-```javascript
-socket.emit('video_call_started', { roomId });
 socket.emit('video_call_ended', { roomId });
 ```
 

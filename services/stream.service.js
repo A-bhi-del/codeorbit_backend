@@ -32,13 +32,31 @@ export const createStreamUser = async (userId, userData) => {
       id: userId,
       name: userData.displayName || userData.username,
       image: userData.photoURL || userData.profileImage,
-      role: 'user'
+      role: 'user',
+      online: userData.online || false
     });
 
     return userId;
   } catch (error) {
     console.error("Create Stream user error:", error);
     return null;
+  }
+};
+
+export const updateStreamUserStatus = async (userId, online) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    await client.partialUpdateUser({
+      id: userId,
+      set: { online }
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Update Stream user status error:", error);
+    return false;
   }
 };
 
@@ -101,5 +119,155 @@ export const getStreamUserToken = async (userId) => {
   } catch (error) {
     console.error("Get Stream user token error:", error);
     return null;
+  }
+};
+
+export const sendStreamNotification = async (userId, notificationData) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    const channel = client.channel('messaging', `notifications-${userId}`, {
+      created_by_id: 'system',
+      members: [userId]
+    });
+
+    await channel.sendMessage({
+      text: notificationData.message,
+      user_id: 'system',
+      customData: {
+        type: notificationData.type,
+        title: notificationData.title,
+        metadata: notificationData.metadata
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Send Stream notification error:", error);
+    return false;
+  }
+};
+
+export const sendFriendRequestNotification = async (receiverId, senderData) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    const channel = client.channel('messaging', `notifications-${receiverId}`, {
+      members: [receiverId]
+    });
+
+    await channel.sendEvent({
+      type: 'friend_request_received',
+      user_id: senderData.userId,
+      data: {
+        sender: senderData,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Send friend request notification error:", error);
+    return false;
+  }
+};
+
+export const sendPingRequestNotification = async (receiverId, pingData) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    const channel = client.channel('messaging', `notifications-${receiverId}`, {
+      members: [receiverId]
+    });
+
+    await channel.sendEvent({
+      type: 'ping_request',
+      user_id: pingData.senderId,
+      data: {
+        pingRequest: pingData,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Send ping request notification error:", error);
+    return false;
+  }
+};
+
+export const sendPingAcceptedNotification = async (senderId, roomData) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    const channel = client.channel('messaging', `notifications-${senderId}`, {
+      members: [senderId]
+    });
+
+    await channel.sendEvent({
+      type: 'ping_accepted',
+      data: {
+        roomId: roomData.roomId,
+        room: roomData,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Send ping accepted notification error:", error);
+    return false;
+  }
+};
+
+export const notifyUserOnline = async (userId, friendIds) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    for (const friendId of friendIds) {
+      const channel = client.channel('messaging', `notifications-${friendId}`, {
+        members: [friendId]
+      });
+
+      await channel.sendEvent({
+        type: 'user_online',
+        user_id: userId,
+        data: { userId, timestamp: new Date().toISOString() }
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Notify user online error:", error);
+    return false;
+  }
+};
+
+export const notifyUserOffline = async (userId, friendIds) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    for (const friendId of friendIds) {
+      const channel = client.channel('messaging', `notifications-${friendId}`, {
+        members: [friendId]
+      });
+
+      await channel.sendEvent({
+        type: 'user_offline',
+        user_id: userId,
+        data: { userId, timestamp: new Date().toISOString() }
+      });
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Notify user offline error:", error);
+    return false;
   }
 };

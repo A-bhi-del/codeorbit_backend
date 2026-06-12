@@ -2,7 +2,7 @@ import PingRequest from "../models/PingRequest.js";
 import Room from "../models/Room.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { emitPingRequest, emitPingAccepted, emitPingRejected } from "../sockets/socketManager.js";
+import { sendPingRequestNotification, sendPingAcceptedNotification, createStreamChannel, getStreamClient } from "../services/stream.service.js";
 import { v4 as uuidv4 } from 'uuid';
 
 // Send ping request
@@ -76,8 +76,16 @@ export const sendPingRequest = async (req, res) => {
 
     console.log('[SEND PING] Notification created');
 
-    // Emit realtime ping request
-    emitPingRequest(receiverId.toString(), pingRequest);
+    // Send Stream ping notification
+    await sendPingRequestNotification(receiverId.toString(), {
+      senderId: senderId.toString(),
+      displayName: sender.displayName,
+      username: sender.username,
+      photoURL: sender.photoURL,
+      profileImage: sender.profileImage,
+      message: message || 'wants to collaborate',
+      requestId: pingRequest._id.toString()
+    });
 
     console.log('[SEND PING] Ping sent successfully');
 
@@ -115,8 +123,23 @@ export const acceptPingRequest = async (req, res) => {
 
     // Create discussion room
     const roomId = uuidv4();
+    
+    // Create Stream channel for the room
+    const streamChannelId = `room-${roomId}`;
+    await createStreamChannel(
+      streamChannelId,
+      'messaging',
+      pingRequest.sender._id.toString(),
+      [pingRequest.sender._id.toString(), pingRequest.receiver._id.toString()],
+      {
+        name: `Discussion Room`,
+        created_by: pingRequest.sender.displayName || pingRequest.sender.username
+      }
+    );
+
     const room = await Room.create({
       roomId,
+      streamChannelId,
       participants: [pingRequest.sender._id, pingRequest.receiver._id],
       createdBy: pingRequest.sender._id,
       active: true
@@ -138,11 +161,11 @@ export const acceptPingRequest = async (req, res) => {
       metadata: { roomId: room.roomId }
     });
 
-    // Emit realtime ping accepted
-    emitPingAccepted(pingRequest.sender._id.toString(), {
+    // Send Stream notification
+    await sendPingAcceptedNotification(pingRequest.sender._id.toString(), {
       roomId: room.roomId,
-      room,
-      pingRequest
+      streamChannelId,
+      room
     });
 
     res.json({ 
@@ -180,10 +203,21 @@ export const rejectPingRequest = async (req, res) => {
     pingRequest.respondedAt = new Date();
     await pingRequest.save();
 
-    // Emit realtime ping rejected
-    emitPingRejected(pingRequest.sender.toString(), {
-      pingId: pingRequest._id
-    });
+    // Send Stream notification for rejection
+    const client = getStreamClient();
+    if (client) {
+      const channel = client.channel('messaging', `notifications-${pingRequest.sender.toString()}`, {
+        members: [pingRequest.sender.toString()]
+      });
+
+      await channel.sendEvent({
+        type: 'ping_rejected',
+        data: {
+          pingId: pingRequest._id.toString(),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
     res.json({ message: "Ping rejected" });
   } catch (error) {

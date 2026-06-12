@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { admin } from "../config/firebase.js";
+import { createStreamUser } from "../services/stream.service.js";
 
 // Signup
 export const signup = async (req, res) => {
@@ -19,6 +20,18 @@ export const signup = async (req, res) => {
       password: hashedPassword,
       provider: 'local'
     });
+
+    // Create Stream user
+    const streamUserId = user._id.toString();
+    await createStreamUser(streamUserId, {
+      displayName: user.displayName || email.split('@')[0],
+      username: user.username || email.split('@')[0],
+      photoURL: user.photoURL,
+      profileImage: user.profileImage
+    });
+
+    user.streamUserId = streamUserId;
+    await user.save();
 
     res.status(201).json({ message: "Signup successful" });
 
@@ -39,6 +52,19 @@ export const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });
+
+    // Ensure Stream user exists
+    if (!user.streamUserId) {
+      const streamUserId = user._id.toString();
+      await createStreamUser(streamUserId, {
+        displayName: user.displayName,
+        username: user.username,
+        photoURL: user.photoURL,
+        profileImage: user.profileImage
+      });
+      user.streamUserId = streamUserId;
+      await user.save();
+    }
 
     const token = jwt.sign(
       { userId: user._id },
@@ -87,10 +113,34 @@ export const googleAuth = async (req, res) => {
         photoURL: decodedToken.picture,
         provider: 'google'
       });
+
+      // Create Stream user
+      const streamUserId = user._id.toString();
+      await createStreamUser(streamUserId, {
+        displayName: user.displayName,
+        username: user.username || user.email.split('@')[0],
+        photoURL: user.photoURL,
+        profileImage: user.profileImage
+      });
+      user.streamUserId = streamUserId;
+      await user.save();
     } else {
       // Update user info if needed
       user.displayName = decodedToken.name;
       user.photoURL = decodedToken.picture;
+      
+      // Ensure Stream user exists
+      if (!user.streamUserId) {
+        const streamUserId = user._id.toString();
+        await createStreamUser(streamUserId, {
+          displayName: user.displayName,
+          username: user.username,
+          photoURL: user.photoURL,
+          profileImage: user.profileImage
+        });
+        user.streamUserId = streamUserId;
+      }
+      
       await user.save();
     }
 
