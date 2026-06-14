@@ -1,6 +1,6 @@
 import Room from "../models/Room.js";
 import User from "../models/User.js";
-import { deleteStreamChannel } from "../services/stream.service.js";
+import { deleteStreamChannel, getStreamClient } from "../services/stream.service.js";
 
 // Get room by ID
 export const getRoomById = async (req, res) => {
@@ -60,6 +60,8 @@ export const closeRoom = async (req, res) => {
     const userId = req.user;
     const { roomId } = req.params;
 
+    console.log('[CLOSE ROOM] User:', userId, 'Room:', roomId);
+
     const room = await Room.findOne({ roomId });
 
     if (!room) {
@@ -75,19 +77,48 @@ export const closeRoom = async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
+    // Mark room as inactive
     room.active = false;
     room.closedAt = new Date();
     await room.save();
 
-    // Delete Stream channel if exists
-    if (room.streamChannelId) {
-      await deleteStreamChannel('messaging', room.streamChannelId);
+    console.log('[CLOSE ROOM] Room marked as closed');
+
+    // Send Stream event to all participants to close room
+    const client = getStreamClient();
+    if (client && room.streamChannelId) {
+      try {
+        const channel = client.channel('messaging', room.streamChannelId);
+        
+        // Send room closed event to all participants
+        await channel.sendEvent({
+          type: 'room_closed',
+          user_id: userId.toString(),
+          data: {
+            roomId: room.roomId,
+            closedBy: userId.toString(),
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        console.log('[CLOSE ROOM] Room closed event sent to all participants');
+
+        // Delete Stream channel
+        await deleteStreamChannel('messaging', room.streamChannelId);
+        console.log('[CLOSE ROOM] Stream channel deleted');
+      } catch (channelError) {
+        console.error('[CLOSE ROOM] Channel cleanup error:', channelError);
+        // Don't fail the request if cleanup fails
+      }
     }
 
-    res.json({ message: "Room closed" });
+    res.json({ 
+      message: "Room closed",
+      roomId: room.roomId
+    });
   } catch (error) {
-    console.error("Close room error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[CLOSE ROOM] Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 

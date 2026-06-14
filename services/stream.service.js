@@ -77,16 +77,23 @@ export const createStreamChannel = async (channelId, channelType, creatorId, mem
     const client = getStreamClient();
     if (!client) return null;
 
+    console.log('[CREATE CHANNEL] Creating channel:', { channelId, channelType, creatorId, memberIds });
+
+    // Ensure creator is in members list
+    const allMembers = [...new Set([creatorId, ...memberIds])];
+
     const channel = client.channel(channelType, channelId, {
       created_by_id: creatorId,
-      members: memberIds,
+      members: allMembers,
       ...channelData
     });
 
     await channel.create();
+    console.log('[CREATE CHANNEL] Channel created successfully:', channelId);
+    
     return channel;
   } catch (error) {
-    console.error("Create Stream channel error:", error);
+    console.error("[CREATE CHANNEL] Error:", error);
     return null;
   }
 };

@@ -105,6 +105,8 @@ export const acceptPingRequest = async (req, res) => {
     const receiverId = req.user;
     const { id: pingId } = req.params;
 
+    console.log('[ACCEPT PING] Receiver:', receiverId, 'PingId:', pingId);
+
     const pingRequest = await PingRequest.findById(pingId)
       .populate('sender', 'displayName username photoURL profileImage streamUserId')
       .populate('receiver', 'displayName username photoURL profileImage streamUserId');
@@ -124,18 +126,31 @@ export const acceptPingRequest = async (req, res) => {
     // Create discussion room
     const roomId = uuidv4();
     
+    // Use streamUserId if available, otherwise use MongoDB ID
+    const senderStreamId = pingRequest.sender.streamUserId || pingRequest.sender._id.toString();
+    const receiverStreamId = pingRequest.receiver.streamUserId || pingRequest.receiver._id.toString();
+    
+    console.log('[ACCEPT PING] Creating channel with members:', [senderStreamId, receiverStreamId]);
+    
     // Create Stream channel for the room
     const streamChannelId = `room-${roomId}`;
-    await createStreamChannel(
+    const channel = await createStreamChannel(
       streamChannelId,
       'messaging',
-      pingRequest.sender._id.toString(),
-      [pingRequest.sender._id.toString(), pingRequest.receiver._id.toString()],
+      senderStreamId,
+      [senderStreamId, receiverStreamId],
       {
         name: `Discussion Room`,
         created_by: pingRequest.sender.displayName || pingRequest.sender.username
       }
     );
+
+    if (!channel) {
+      console.error('[ACCEPT PING] Failed to create Stream channel');
+      return res.status(500).json({ message: "Failed to create collaboration room" });
+    }
+
+    console.log('[ACCEPT PING] Stream channel created:', streamChannelId);
 
     const room = await Room.create({
       roomId,
@@ -144,6 +159,8 @@ export const acceptPingRequest = async (req, res) => {
       createdBy: pingRequest.sender._id,
       active: true
     });
+
+    console.log('[ACCEPT PING] Room created in DB:', room.roomId);
 
     // Update ping request
     pingRequest.status = 'accepted';
@@ -158,7 +175,7 @@ export const acceptPingRequest = async (req, res) => {
       type: 'ping_accepted',
       title: 'Ping Accepted',
       message: `${pingRequest.receiver.displayName || pingRequest.receiver.username} accepted your ping`,
-      metadata: { roomId: room.roomId }
+      metadata: { roomId: room.roomId, streamChannelId }
     });
 
     // Send Stream notification
@@ -168,14 +185,17 @@ export const acceptPingRequest = async (req, res) => {
       room
     });
 
+    console.log('[ACCEPT PING] Ping accepted successfully');
+
     res.json({ 
       message: "Ping accepted",
       roomId: room.roomId,
+      streamChannelId,
       room
     });
   } catch (error) {
-    console.error("Accept ping request error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[ACCEPT PING] Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
