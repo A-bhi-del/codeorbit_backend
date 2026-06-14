@@ -196,3 +196,36 @@ export const refreshGithubData = async (req, res) => {
     });
   }
 };
+
+
+// Get GitHub connection status
+export const getGithubStatus = async (req, res) => {
+  try {
+    const userId = req.user;
+    const user = await User.findById(userId).select('github');
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isConnected = !!(user.github && user.github.username);
+
+    res.json({
+      connected: isConnected,
+      github: isConnected ? {
+        username: user.github.username,
+        avatar: user.github.avatar,
+        followers: user.github.followers,
+        following: user.github.following,
+        publicRepos: user.github.publicRepos,
+        totalStars: user.github.totalStars,
+        totalContributions: user.github.totalContributions,
+        connectedAt: user.github.connectedAt
+        // Don't send accessToken
+      } : null
+    });
+  } catch (error) {
+    console.error("Get GitHub status error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
