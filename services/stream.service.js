@@ -84,10 +84,13 @@ export const createStreamChannel = async (channelId, channelType, creatorId, mem
     
     console.log('[CREATE CHANNEL] All members:', allMembers);
 
+    // Remove created_by from channelData if it exists (it should be created_by_id)
+    const { created_by, ...cleanChannelData } = channelData;
+
     const channel = client.channel(channelType, channelId, {
       created_by_id: creatorId,
       members: allMembers,
-      ...channelData
+      ...cleanChannelData
     });
 
     await channel.create();

@@ -1,14 +1,13 @@
 import axios from "axios";
 
-export const fetchGithubProfile = async (username) => {
+// Fetch GitHub profile using user's OAuth access token
+export const fetchGithubProfile = async (username, accessToken) => {
+  if (!accessToken) {
+    throw new Error("GitHub access token is required. Please connect your GitHub account.");
+  }
   try {
     console.log(`🔍 Fetching GitHub profile for: ${username}`);
-    
-    // Check if GitHub token is available
-    if (!process.env.GITHUB_TOKEN) {
-      console.error("❌ GITHUB_TOKEN not found in environment variables");
-      throw new Error("GitHub token not configured");
-    }
+    console.log(`🔑 Using user's OAuth token`);
 
     // Profile
     console.log("📡 Fetching GitHub profile data...");
@@ -16,7 +15,7 @@ export const fetchGithubProfile = async (username) => {
       `https://api.github.com/users/${username}`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Authorization: `Bearer ${accessToken}`,
           'User-Agent': 'CodeOrbit-Backend'
         }
       }
@@ -29,7 +28,7 @@ export const fetchGithubProfile = async (username) => {
       `https://api.github.com/users/${username}/repos?per_page=100`,
       {
         headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Authorization: `Bearer ${accessToken}`,
           'User-Agent': 'CodeOrbit-Backend'
         }
       }
@@ -67,7 +66,7 @@ export const fetchGithubProfile = async (username) => {
       { query },
       {
         headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
           'User-Agent': 'CodeOrbit-Backend'
         }
@@ -115,5 +114,57 @@ export const fetchGithubProfile = async (username) => {
     }
     
     throw new Error(`GitHub API error: ${error.message}`);
+  }
+};
+
+
+// Exchange OAuth code for access token
+export const exchangeGithubCode = async (code) => {
+  try {
+    console.log('🔄 Exchanging GitHub OAuth code for access token');
+    
+    const response = await axios.post(
+      'https://github.com/login/oauth/access_token',
+      {
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code
+      },
+      {
+        headers: {
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    if (response.data.error) {
+      throw new Error(response.data.error_description || 'Failed to exchange code');
+    }
+
+    console.log('✅ Access token received');
+    return response.data.access_token;
+  } catch (error) {
+    console.error('❌ GitHub OAuth error:', error.message);
+    throw new Error(`Failed to authenticate with GitHub: ${error.message}`);
+  }
+};
+
+// Get authenticated user profile using their access token
+export const getAuthenticatedGithubUser = async (accessToken) => {
+  try {
+    console.log('👤 Fetching authenticated GitHub user');
+    
+    const response = await axios.get('https://api.github.com/user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'User-Agent': 'CodeOrbit-Backend'
+      }
+    });
+
+    console.log('✅ Authenticated user data fetched');
+    return response.data;
+  } catch (error) {
+    console.error('❌ Failed to get authenticated user:', error.message);
+    throw new Error('Failed to get GitHub user information');
   }
 };

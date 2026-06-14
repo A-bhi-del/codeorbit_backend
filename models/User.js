@@ -41,7 +41,9 @@ const githubSchema = new mongoose.Schema({
   publicRepos: Number,
   totalStars: Number,
   totalContributions: Number,
-  contributionGraph: Array
+  contributionGraph: Array,
+  accessToken: String, // User's personal access token
+  connectedAt: Date
 });
 
 const codechefSchema = new mongoose.Schema({

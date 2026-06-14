@@ -176,8 +176,8 @@ export const acceptPingRequest = async (req, res) => {
         receiverStreamId, // Acceptor creates the channel
         [senderStreamId, receiverStreamId], // Both users as members
         {
-          name: `Collaboration Room`,
-          created_by: pingRequest.receiver.displayName || pingRequest.receiver.username
+          name: `Collaboration Room`
+          // Don't pass created_by - Stream will use created_by_id automatically
         }
       );
 
