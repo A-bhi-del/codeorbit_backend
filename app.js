@@ -1,7 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { connectDB } from "./config/db.js";
 import { initializeFirebase } from "./config/firebase.js";
 import authRoutes from "./routes/auth.routes.js";
 import leetcodeRoutes from "./routes/leetcode.routes.js";
@@ -25,7 +24,6 @@ import roomsRoutes from "./routes/rooms.routes.js";
 import streamRoutes from "./routes/stream.routes.js";
 
 dotenv.config();
-connectDB();
 initializeFirebase();
 
 const app = express();

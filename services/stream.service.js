@@ -30,10 +30,9 @@ export const createStreamUser = async (userId, userData) => {
 
     await client.upsertUser({
       id: userId,
-      name: userData.displayName || userData.username,
+      name: userData.displayName || userData.username || 'User',
       image: userData.photoURL || userData.profileImage,
-      role: 'user',
-      online: userData.online || false
+      role: 'user'
     });
 
     return userId;

@@ -98,9 +98,17 @@ export const saveCanvasData = async (req, res) => {
     const { roomId } = req.params;
     const { strokes } = req.body;
 
+    console.log('[SAVE CANVAS] Request:', { userId, roomId, strokesCount: strokes?.length });
+
+    // Validate request body
+    if (!strokes || !Array.isArray(strokes)) {
+      return res.status(400).json({ message: "Invalid canvas data. Strokes must be an array." });
+    }
+
     const room = await Room.findOne({ roomId });
 
     if (!room) {
+      console.log('[SAVE CANVAS] Room not found:', roomId);
       return res.status(404).json({ message: "Room not found" });
     }
 
@@ -110,16 +118,22 @@ export const saveCanvasData = async (req, res) => {
     );
 
     if (!isParticipant) {
+      console.log('[SAVE CANVAS] User not authorized:', userId);
       return res.status(403).json({ message: "Unauthorized" });
     }
 
+    // Save canvas data
     room.canvasData = { strokes };
     await room.save();
 
-    res.json({ message: "Canvas saved" });
+    console.log('[SAVE CANVAS] Success:', { roomId, strokesCount: strokes.length });
+    res.json({ message: "Canvas saved", strokesCount: strokes.length });
   } catch (error) {
-    console.error("Save canvas data error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[SAVE CANVAS] Error:", error);
+    res.status(500).json({ 
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
 
@@ -129,9 +143,12 @@ export const getCanvasData = async (req, res) => {
     const userId = req.user;
     const { roomId } = req.params;
 
+    console.log('[GET CANVAS] Request:', { userId, roomId });
+
     const room = await Room.findOne({ roomId });
 
     if (!room) {
+      console.log('[GET CANVAS] Room not found:', roomId);
       return res.status(404).json({ message: "Room not found" });
     }
 
@@ -141,12 +158,19 @@ export const getCanvasData = async (req, res) => {
     );
 
     if (!isParticipant) {
+      console.log('[GET CANVAS] User not authorized:', userId);
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    res.json({ canvasData: room.canvasData || { strokes: [] } });
+    const canvasData = room.canvasData || { strokes: [] };
+    console.log('[GET CANVAS] Success:', { roomId, strokesCount: canvasData.strokes?.length || 0 });
+    
+    res.json({ canvasData });
   } catch (error) {
-    console.error("Get canvas data error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[GET CANVAS] Error:", error);
+    res.status(500).json({ 
+      message: "Server error",
+      error: error.message
+    });
   }
 };
