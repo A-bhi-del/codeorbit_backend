@@ -2,7 +2,7 @@ import PingRequest from "../models/PingRequest.js";
 import Room from "../models/Room.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { sendPingRequestNotification, sendPingAcceptedNotification, createStreamChannel, getStreamClient } from "../services/stream.service.js";
+import { sendPingRequestNotification, sendPingAcceptedNotification, createStreamChannel, getStreamClient, ensureStreamUsers } from "../services/stream.service.js";
 import { v4 as uuidv4 } from 'uuid';
 
 // Send ping request
@@ -108,8 +108,8 @@ export const acceptPingRequest = async (req, res) => {
     console.log('[ACCEPT PING] Receiver:', receiverId, 'PingId:', pingId);
 
     const pingRequest = await PingRequest.findById(pingId)
-      .populate('sender', 'displayName username photoURL profileImage streamUserId')
-      .populate('receiver', 'displayName username photoURL profileImage streamUserId');
+      .populate('sender', 'displayName username email photoURL profileImage streamUserId')
+      .populate('receiver', 'displayName username email photoURL profileImage streamUserId');
 
     if (!pingRequest) {
       console.log('[ACCEPT PING] Ping request not found');
@@ -126,54 +126,87 @@ export const acceptPingRequest = async (req, res) => {
       return res.status(400).json({ message: "Ping already responded to" });
     }
 
-    // Create discussion room
-    const roomId = uuidv4();
-    const streamChannelId = `room-${roomId}`;
-    
-    console.log('[ACCEPT PING] Creating room:', { roomId, streamChannelId });
-    
     // Use streamUserId if available, otherwise use MongoDB ID
     const senderStreamId = pingRequest.sender.streamUserId || pingRequest.sender._id.toString();
     const receiverStreamId = pingRequest.receiver.streamUserId || pingRequest.receiver._id.toString();
     
     console.log('[ACCEPT PING] Stream IDs:', { senderStreamId, receiverStreamId });
     
-    // Try to create Stream channel (non-blocking)
+    // ✅ CRITICAL: Ensure BOTH users exist in Stream BEFORE creating channel
+    console.log('[ACCEPT PING] Ensuring both users exist in Stream');
+    const usersEnsured = await ensureStreamUsers(
+      [senderStreamId, receiverStreamId],
+      [
+        {
+          displayName: pingRequest.sender.displayName,
+          username: pingRequest.sender.username,
+          email: pingRequest.sender.email,
+          photoURL: pingRequest.sender.photoURL,
+          profileImage: pingRequest.sender.profileImage
+        },
+        {
+          displayName: pingRequest.receiver.displayName,
+          username: pingRequest.receiver.username,
+          email: pingRequest.receiver.email,
+          photoURL: pingRequest.receiver.photoURL,
+          profileImage: pingRequest.receiver.profileImage
+        }
+      ]
+    );
+
+    if (!usersEnsured) {
+      console.error('[ACCEPT PING] Failed to ensure users in Stream');
+      return res.status(500).json({ message: "Failed to setup Stream users" });
+    }
+
+    console.log('[ACCEPT PING] ✅ Both users ready in Stream');
+
+    // Create discussion room
+    const roomId = uuidv4();
+    const streamChannelId = `room-${roomId}`;
+    
+    console.log('[ACCEPT PING] Creating room:', { roomId, streamChannelId });
+    
+    // Create Stream channel with both users as members
     let channelCreated = false;
     try {
       const channel = await createStreamChannel(
         streamChannelId,
         'messaging',
-        senderStreamId,
-        [senderStreamId, receiverStreamId],
+        receiverStreamId, // Acceptor creates the channel
+        [senderStreamId, receiverStreamId], // Both users as members
         {
-          name: `Discussion Room`,
-          created_by: pingRequest.sender.displayName || pingRequest.sender.username
+          name: `Collaboration Room`,
+          created_by: pingRequest.receiver.displayName || pingRequest.receiver.username
         }
       );
 
       if (channel) {
         channelCreated = true;
-        console.log('[ACCEPT PING] Stream channel created successfully');
+        console.log('[ACCEPT PING] ✅ Stream channel created with both members');
       } else {
-        console.warn('[ACCEPT PING] Stream channel creation returned null');
+        console.error('[ACCEPT PING] ❌ Stream channel creation returned null');
+        return res.status(500).json({ message: "Failed to create collaboration room" });
       }
     } catch (streamError) {
-      console.error('[ACCEPT PING] Stream channel creation failed:', streamError);
-      // Continue anyway - room can work without Stream channel
+      console.error('[ACCEPT PING] ❌ Stream channel creation failed:', streamError);
+      return res.status(500).json({ 
+        message: "Failed to create collaboration room",
+        error: streamError.message 
+      });
     }
 
-    // Create room in database regardless of Stream channel status
+    // Create room in database
     console.log('[ACCEPT PING] Creating room in database');
     const room = await Room.create({
       roomId,
-      streamChannelId: channelCreated ? streamChannelId : null,
+      streamChannelId,
       participants: [pingRequest.sender._id, pingRequest.receiver._id],
-      createdBy: pingRequest.sender._id,
+      createdBy: pingRequest.receiver._id,
       active: true
     });
 
-    console.log('[ACCEPT PING] Room created in DB:', room.roomId);
+    console.log('[ACCEPT PING] ✅ Room created in DB:', room.roomId);
 
     // Update ping request
     pingRequest.status = 'accepted';
@@ -184,39 +217,32 @@ export const acceptPingRequest = async (req, res) => {
     console.log('[ACCEPT PING] Ping request updated');
 
     // Create notification for sender
-    try {
-      const notification = await Notification.create({
-        sender: receiverId,
-        receiver: pingRequest.sender._id,
-        type: 'ping_accepted',
-        title: 'Ping Accepted',
-        message: `${pingRequest.receiver.displayName || pingRequest.receiver.username} accepted your ping`,
-        metadata: { roomId: room.roomId, streamChannelId: channelCreated ? streamChannelId : null }
-      });
+    await Notification.create({
+      sender: receiverId,
+      receiver: pingRequest.sender._id,
+      type: 'ping_accepted',
+      title: 'Ping Accepted',
+      message: `${pingRequest.receiver.displayName || pingRequest.receiver.username} accepted your ping`,
+      metadata: { roomId: room.roomId, streamChannelId }
+    });
 
-      console.log('[ACCEPT PING] Notification created');
+    console.log('[ACCEPT PING] Notification created');
 
-      // Send Stream notification
-      if (channelCreated) {
-        await sendPingAcceptedNotification(pingRequest.sender._id.toString(), {
-          roomId: room.roomId,
-          streamChannelId,
-          room
-        });
-        console.log('[ACCEPT PING] Stream notification sent');
-      }
-    } catch (notifError) {
-      console.error('[ACCEPT PING] Notification error (non-critical):', notifError);
-      // Don't fail the request if notification fails
-    }
-
-    console.log('[ACCEPT PING] Ping accepted successfully');
+    // Send Stream notification to sender
+    await sendPingAcceptedNotification(senderStreamId, {
+      roomId: room.roomId,
+      streamChannelId,
+      room
+    });
+    
+    console.log('[ACCEPT PING] ✅ Stream notification sent to sender');
+    console.log('[ACCEPT PING] ✅ Ping accepted successfully');
 
     res.json({ 
       message: "Ping accepted",
       success: true,
       roomId: room.roomId,
-      streamChannelId: channelCreated ? streamChannelId : null,
+      streamChannelId,
       room: {
         roomId: room.roomId,
         streamChannelId: room.streamChannelId,

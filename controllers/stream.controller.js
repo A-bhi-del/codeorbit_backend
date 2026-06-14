@@ -13,12 +13,18 @@ export const getStreamToken = async (req, res) => {
 
     // Create or update Stream user
     const streamUserId = user.streamUserId || userId.toString();
+    
+    console.log('[STREAM TOKEN] Creating/updating user:', streamUserId);
+    
     await createStreamUser(streamUserId, {
       displayName: user.displayName,
       username: user.username,
+      email: user.email,
       photoURL: user.photoURL,
       profileImage: user.profileImage
     });
+
+    console.log('[STREAM TOKEN] ✅ Stream user ready');
 
     // Update user with Stream ID if not set
     if (!user.streamUserId) {
@@ -33,14 +39,16 @@ export const getStreamToken = async (req, res) => {
       return res.status(500).json({ message: "Failed to generate Stream token" });
     }
 
+    console.log('[STREAM TOKEN] ✅ Token generated for:', streamUserId);
+
     res.json({
       token: tokenData.token,
       apiKey: tokenData.apiKey,
       userId: streamUserId
     });
   } catch (error) {
-    console.error("Get Stream token error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[STREAM TOKEN] Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
@@ -56,9 +64,12 @@ export const initializeStreamUser = async (req, res) => {
 
     const streamUserId = user.streamUserId || userId.toString();
     
+    console.log('[STREAM INIT] Initializing user:', streamUserId);
+    
     const result = await createStreamUser(streamUserId, {
       displayName: user.displayName,
       username: user.username,
+      email: user.email,
       photoURL: user.photoURL,
       profileImage: user.profileImage
     });
@@ -66,6 +77,8 @@ export const initializeStreamUser = async (req, res) => {
     if (!result) {
       return res.status(500).json({ message: "Failed to initialize Stream user" });
     }
+
+    console.log('[STREAM INIT] ✅ User initialized');
 
     if (!user.streamUserId) {
       user.streamUserId = streamUserId;
@@ -77,7 +90,7 @@ export const initializeStreamUser = async (req, res) => {
       streamUserId
     });
   } catch (error) {
-    console.error("Initialize Stream user error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("[STREAM INIT] Error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };

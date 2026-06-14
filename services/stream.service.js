@@ -81,6 +81,8 @@ export const createStreamChannel = async (channelId, channelType, creatorId, mem
 
     // Ensure creator is in members list
     const allMembers = [...new Set([creatorId, ...memberIds])];
+    
+    console.log('[CREATE CHANNEL] All members:', allMembers);
 
     const channel = client.channel(channelType, channelId, {
       created_by_id: creatorId,
@@ -91,9 +93,14 @@ export const createStreamChannel = async (channelId, channelType, creatorId, mem
     await channel.create();
     console.log('[CREATE CHANNEL] Channel created successfully:', channelId);
     
+    // Verify members were added
+    const channelState = channel.state;
+    console.log('[CREATE CHANNEL] Channel members:', Object.keys(channelState.members || {}));
+    
     return channel;
   } catch (error) {
     console.error("[CREATE CHANNEL] Error:", error);
+    console.error("[CREATE CHANNEL] Error details:", error.message);
     return null;
   }
 };
@@ -274,6 +281,35 @@ export const notifyUserOffline = async (userId, friendIds) => {
     return true;
   } catch (error) {
     console.error("Notify user offline error:", error);
+    return false;
+  }
+};
+
+// Ensure both users exist in Stream before creating a channel
+export const ensureStreamUsers = async (userIds, usersData) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return false;
+
+    console.log('[ENSURE USERS] Upserting users:', userIds);
+
+    const streamUsers = userIds.map((userId, index) => {
+      const userData = usersData[index] || {};
+      return {
+        id: userId,
+        name: userData.displayName || userData.username || userData.email || 'User',
+        image: userData.photoURL || userData.profileImage,
+        role: 'user'
+      };
+    });
+
+    await client.upsertUsers(streamUsers);
+    console.log('[ENSURE USERS] ✅ All users upserted successfully');
+
+    return true;
+  } catch (error) {
+    console.error("[ENSURE USERS] Error:", error);
+    console.error("[ENSURE USERS] Error details:", error.message);
     return false;
   }
 };
