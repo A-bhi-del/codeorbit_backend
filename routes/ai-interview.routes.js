@@ -20,6 +20,22 @@ const upload = multer({
   }
 });
 
+// Configure multer for audio uploads
+const audioUpload = multer({
+  dest: 'uploads/audio/',
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit for audio
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['audio/wav', 'audio/webm', 'audio/mpeg', 'audio/mp3'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only audio files are allowed'));
+    }
+  }
+});
+
 // All routes require authentication
 router.use(protect);
 
@@ -72,4 +88,27 @@ router.get('/session/:session_id', aiInterviewController.getSessionStatus);
  */
 router.post('/advance-stage/:session_id', aiInterviewController.advanceStage);
 
+
+/**
+ * @route   POST /api/ai-interview/voice-answer/:session_id
+ * @desc    Submit voice answer and get next question
+ * @access  Private
+ */
+router.post('/voice-answer/:session_id', audioUpload.single('audio'), aiInterviewController.submitVoiceAnswer);
+
+/**
+ * @route   POST /api/ai-interview/stop-speech/:session_id
+ * @desc    Stop AI speech playback
+ * @access  Private
+ */
+router.post('/stop-speech/:session_id', aiInterviewController.stopSpeech);
+
+/**
+ * @route   POST /api/ai-interview/text-to-speech
+ * @desc    Convert text to speech
+ * @access  Private
+ */
+router.post('/text-to-speech', aiInterviewController.textToSpeech);
+
 export default router;
+

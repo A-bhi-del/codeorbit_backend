@@ -234,3 +234,102 @@ export const advanceStage = async (req, res) => {
     });
   }
 };
+
+/**
+ * Submit Voice Answer
+ */
+export const submitVoiceAnswer = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'No audio file uploaded' 
+      });
+    }
+    
+    const formData = new FormData();
+    formData.append('audio', fs.createReadStream(req.file.path), req.file.originalname);
+    
+    const response = await axios.post(
+      `${AI_SERVICE_URL}/voice/voice-answer/${session_id}`,
+      formData,
+      {
+        headers: formData.getHeaders()
+      }
+    );
+    
+    // Clean up uploaded file
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Voice Answer Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to submit voice answer',
+      details: error.response?.data || error.message
+    });
+  }
+};
+
+/**
+ * Stop AI Speech
+ */
+export const stopSpeech = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    
+    const response = await axios.post(`${AI_SERVICE_URL}/voice/stop-speech/${session_id}`);
+    
+    res.json({
+      success: true,
+      data: response.data
+    });
+  } catch (error) {
+    console.error('Stop Speech Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to stop speech',
+      details: error.response?.data || error.message
+    });
+  }
+};
+
+/**
+ * Convert Text to Speech
+ */
+export const textToSpeech = async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'text is required'
+      });
+    }
+    
+    const response = await axios.post(`${AI_SERVICE_URL}/voice/text-to-speech`, {
+      text
+    }, {
+      responseType: 'stream'
+    });
+    
+    res.setHeader('Content-Type', 'audio/mpeg');
+    response.data.pipe(res);
+  } catch (error) {
+    console.error('Text to Speech Error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to convert text to speech',
+      details: error.response?.data || error.message
+    });
+  }
+};
