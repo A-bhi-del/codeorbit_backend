@@ -22,6 +22,7 @@ import notificationsRoutes from "./routes/notifications.routes.js";
 import pingRoutes from "./routes/ping.routes.js";
 import roomsRoutes from "./routes/rooms.routes.js";
 import streamRoutes from "./routes/stream.routes.js";
+import aiInterviewRoutes from "./routes/ai-interview.routes.js";
 
 dotenv.config();
 initializeFirebase();
@@ -71,5 +72,6 @@ app.use("/api/notifications", notificationsRoutes);
 app.use("/api/ping", pingRoutes);
 app.use("/api/rooms", roomsRoutes);
 app.use("/api/stream", streamRoutes);
+app.use("/api/ai-interview", aiInterviewRoutes);
 
 export default app;
