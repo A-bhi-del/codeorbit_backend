@@ -2,7 +2,10 @@ import axios from "axios";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-const makeGroqRequest = async (messages, modelName = "llama-3.3-70b-versatile", retryCount = 0) => {
+const PRIMARY_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+const FALLBACK_MODEL = process.env.GROQ_FALLBACK_MODEL || "openai/gpt-oss-20b";
+
+const makeGroqRequest = async (messages, modelName = PRIMARY_MODEL, retryCount = 0) => {
   const maxRetries = 3;
   const baseDelay = 1000; // 1 second
   
@@ -15,7 +18,7 @@ const makeGroqRequest = async (messages, modelName = "llama-3.3-70b-versatile", 
         model: modelName,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4000,
         stream: false
       },
       {
@@ -49,9 +52,9 @@ const makeGroqRequest = async (messages, modelName = "llama-3.3-70b-versatile", 
     }
     
     // If still failing after retries, try fallback model
-    if ((error.response?.status === 429 || error.response?.status === 400) && modelName !== "llama-3.1-8b-instant") {
-      console.log("🔄 Trying faster Groq model llama-3.1-8b-instant...");
-      return await makeGroqRequest(messages, "llama-3.1-8b-instant", 0);
+    if ([429, 400, 404].includes(error.response?.status) && modelName !== FALLBACK_MODEL) {
+      console.log(`🔄 Trying fallback Groq model ${FALLBACK_MODEL}...`);
+      return await makeGroqRequest(messages, FALLBACK_MODEL, 0);
     }
     
     // Re-throw error for final handling
@@ -394,8 +397,8 @@ Always respond in valid JSON format with specific, actionable recommendations.`
     // Try different Groq models with better error handling
     let response;
     try {
-      console.log("🚀 Requesting analysis from Groq Llama-3.3-70B (high-performance)...");
-      response = await makeGroqRequest(messages, "llama-3.3-70b-versatile");
+      console.log(`🚀 Requesting analysis from Groq ${PRIMARY_MODEL}...`);
+      response = await makeGroqRequest(messages, PRIMARY_MODEL);
     } catch (error) {
       if (error.response?.status === 429) {
         console.log("💡 Rate limit reached. Your Groq API key may have exceeded its quota.");
@@ -424,7 +427,7 @@ Always respond in valid JSON format with specific, actionable recommendations.`
     aiResult.analysis.totalProblemsAnalyzed = recentProblems.length;
     aiResult.analysis.dataSource = "Real user problems from /api/problems/all";
     aiResult.analysis.analysisTimestamp = new Date().toISOString();
-    aiResult.analysis.aiModel = "Groq Llama-3.3-70B";
+    aiResult.analysis.aiModel = `Groq ${PRIMARY_MODEL}`;
     
     console.log("🎯 AI Analysis Summary:");
     console.log("- Dominant Topics:", aiResult.analysis.dominantTopics);
