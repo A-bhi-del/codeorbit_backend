@@ -5,6 +5,7 @@ import { initializeFirebase } from "./config/firebase.js";
 import authRoutes from "./routes/auth.routes.js";
 import leetcodeRoutes from "./routes/leetcode.routes.js";
 import codeforcesRoutes from "./routes/codeforces.routes.js";
+import platformsRoutes from "./routes/platforms.routes.js";
 import githubRoutes from "./routes/github.routes.js";
 import leaderboardRoutes from "./routes/leaderboard.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
@@ -49,13 +50,14 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Body parser
-app.use(express.json());
+app.use(express.json({ limit: "512kb" })); // profile photos arrive as a small data URL
 
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/leetcode", leetcodeRoutes);
 app.use("/api/codeforces", codeforcesRoutes);
 app.use("/api/github", githubRoutes);
+app.use("/api/platforms", platformsRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/contests", contestRoutes);

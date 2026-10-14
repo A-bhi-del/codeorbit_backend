@@ -109,10 +109,11 @@ export const verifyLeetCode = async (req, res) => {
     const badges =
       profileData.matchedUser.badges?.map((b) => ({
         name: b.displayName,
-        icon: b.icon
+        icon: typeof b.icon === "string" && b.icon.startsWith("/") ? `https://leetcode.com${b.icon}` : b.icon
       })) || [];
 
     // 🔹 Save in DB
+    const alreadyVerified = !!user.leetcode.verified;
     user.leetcode.verified = true;
     user.leetcode.verificationCode = null;
     user.leetcode.codeExpiry = null;
@@ -131,7 +132,8 @@ export const verifyLeetCode = async (req, res) => {
     // Parse LeetCode calendar and add to activity
     // Calendar format: { "timestamp": count, ... }
     let addedDays = 0;
-    Object.entries(calendar).forEach(([timestamp, count]) => {
+    // On a re-verification the calendar was already merged, so skip it (adding again would double the counts)
+    if (!alreadyVerified) Object.entries(calendar).forEach(([timestamp, count]) => {
       const date = new Date(parseInt(timestamp) * 1000).toISOString().slice(0, 10);
       const existingActivity = user.activity.find(a => a.date === date);
       

@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import { calculateConsistencyScore } from "../utils/consistency.util.js";
 import { calculateWeeklyTrend } from "../utils/weeklyTrend.util.js";
+import { activityByDay, dayKey, dayNum } from "../utils/dates.util.js";
 
 export const getConsistencyScore = async (req, res) => {
 
@@ -133,7 +134,7 @@ export const getPlatformComparison = async (req, res) => {
 
       {
         platform: "CodeChef",
-        solved: 0,
+        solved: user.codechef?.problemsSolved || 0,
         rating: user.codechef?.rating || 0,
         activity: 0
       },
@@ -161,56 +162,32 @@ export const getPlatformComparison = async (req, res) => {
 
 };
 
-// Calculate streak from activity data
-const calculateStreaks = (activity) => {
-  if (!activity || activity.length === 0) {
-    return { currentStreak: 0, longestStreak: 0, activeDays: 0 };
+// Streaks from the stored per-day activity. A day counts when its total is above zero.
+// The current streak is still alive if you were active today OR yesterday (the day isn't over yet).
+export const calculateStreaks = (activity) => {
+  const days = [...activityByDay(activity)]
+    .filter(([, count]) => count > 0)
+    .map(([key]) => dayNum(key))
+    .sort((x, y) => x - y);
+
+  if (days.length === 0) return { currentStreak: 0, longestStreak: 0, activeDays: 0 };
+
+  let longestStreak = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i++) {
+    run = days[i] - days[i - 1] === 1 ? run + 1 : 1;
+    longestStreak = Math.max(longestStreak, run);
   }
 
-  const sortedActivity = activity
-    .filter(a => a.count > 0)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
+  // walk back from the latest active day
   let currentStreak = 0;
-  let longestStreak = 0;
-  let tempStreak = 0;
-  const activeDays = sortedActivity.length;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Calculate current streak
-  for (let i = 0; i < sortedActivity.length; i++) {
-    const activityDate = new Date(sortedActivity[i].date);
-    activityDate.setHours(0, 0, 0, 0);
-    
-    const expectedDate = new Date(today);
-    expectedDate.setDate(today.getDate() - i);
-    expectedDate.setHours(0, 0, 0, 0);
-
-    if (activityDate.getTime() === expectedDate.getTime()) {
-      currentStreak++;
-    } else {
-      break;
-    }
+  const latest = days[days.length - 1];
+  if (latest >= dayNum(dayKey(-1))) {
+    currentStreak = 1;
+    for (let i = days.length - 2; i >= 0 && days[i] === days[i + 1] - 1; i--) currentStreak++;
   }
 
-  // Calculate longest streak
-  const allDates = activity
-    .filter(a => a.count > 0)
-    .map(a => new Date(a.date).getTime())
-    .sort((a, b) => a - b);
-
-  for (let i = 0; i < allDates.length; i++) {
-    if (i === 0 || allDates[i] - allDates[i - 1] === 86400000) {
-      tempStreak++;
-      longestStreak = Math.max(longestStreak, tempStreak);
-    } else {
-      tempStreak = 1;
-    }
-  }
-
-  return { currentStreak, longestStreak, activeDays };
+  return { currentStreak, longestStreak, activeDays: days.length };
 };
 
 export const getDashboardStats = async (req, res) => {
@@ -271,14 +248,6 @@ export const getProblemStats = async (req, res) => {
         platform: "Codeforces",
         value: user.codeforces.solvedProblems,
         color: "oklch(0.65 0.2 260)"
-      });
-    }
-
-    if (user.github?.totalContributions) {
-      platformBreakdown.push({
-        platform: "GitHub",
-        value: user.github.totalContributions,
-        color: "oklch(0.7 0.18 165)"
       });
     }
 
@@ -389,7 +358,8 @@ export const getBadges = async (req, res) => {
       user.leetcode.badges.forEach(badge => {
         badges.push({
           name: badge.name,
-          icon: badge.icon,
+          // LeetCoding Challenge badges come with a site-relative path (/static/...), which would point at our own domain
+          icon: typeof badge.icon === "string" && badge.icon.startsWith("/") ? `https://leetcode.com${badge.icon}` : badge.icon,
           platform: "LeetCode"
         });
       });

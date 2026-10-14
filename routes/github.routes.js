@@ -1,5 +1,5 @@
 import express from "express";
-import { githubOAuthCallback, disconnectGithub, refreshGithubData, getGithubStatus } from "../controllers/github.controller.js";
+import { githubOAuthCallback, connectGithub, disconnectGithub, refreshGithubData, getGithubStatus } from "../controllers/github.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -7,7 +7,10 @@ const router = express.Router();
 // Get GitHub connection status
 router.get("/status", protect, getGithubStatus);
 
-// OAuth flow - Connect GitHub via OAuth
+// Connect GitHub by username
+router.post("/connect", protect, connectGithub);
+
+// OAuth flow - Connect GitHub via OAuth (optional)
 router.post("/oauth/callback", protect, githubOAuthCallback);
 
 // Disconnect GitHub

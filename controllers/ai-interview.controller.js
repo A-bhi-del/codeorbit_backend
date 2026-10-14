@@ -1,4 +1,5 @@
 import axios from 'axios';
+import User from "../models/User.js";
 import FormData from 'form-data';
 import fs from 'fs';
 
@@ -24,19 +25,30 @@ export const startInterview = async (req, res) => {
     }
     
     // Build coding profile from user's CodeOrbit data
+    // (req.user is just the user's id, so load the document)
+    const me = await User.findById(req.user).select('leetcode codeforces codechef gfg lastRecommendations');
+    const analysis = me?.lastRecommendations?.recommendations?.analysis;
+    // The AI service wants whole numbers and plain strings, so coerce (ratings are often decimals).
+    const int = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : null);
+    const topics = (list) =>
+      (Array.isArray(list) ? list : [])
+        .map((t) => (typeof t === 'string' ? t : t?.topic || t?.name || t?.tag || ''))
+        .filter(Boolean);
     const codingProfile = {
-      leetcode_rating: req.user.leetcodeStats?.rating || null,
-      codeforces_rating: req.user.codeforcesStats?.rating || null,
-      codechef_rating: req.user.codechefStats?.rating || null,
-      strong_topics: req.user.analytics?.strongTopics || [],
-      weak_topics: req.user.analytics?.weakTopics || [],
-      total_problems_solved: req.user.totalSolved || 0,
-      contest_participation: req.user.contestsParticipated || 0
+      leetcode_rating: int(me?.leetcode?.contestRating),
+      codeforces_rating: int(me?.codeforces?.rating),
+      codechef_rating: int(me?.codechef?.rating),
+      strong_topics: topics(analysis?.dominantTopics),
+      weak_topics: topics(analysis?.identifiedGaps),
+      total_problems_solved:
+        (int(me?.leetcode?.totalSolved) || 0) + (int(me?.codeforces?.solvedProblems) || 0) +
+        (int(me?.codechef?.problemsSolved) || 0) + (int(me?.gfg?.problemsSolved) || 0),
+      contest_participation: (int(me?.leetcode?.contestsPlayed) || 0) + (int(me?.codeforces?.contestsPlayed) || 0)
     };
     
     // Call AI service
     const response = await axios.post(`${AI_SERVICE_URL}/interview/start`, {
-      user_id: req.user._id.toString(),
+      user_id: String(req.user),
       interview_type: interview_type || 'technical',
       difficulty: normalizedDifficulty,
       coding_profile: codingProfile

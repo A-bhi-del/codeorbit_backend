@@ -285,20 +285,24 @@ export const rejectPingRequest = async (req, res) => {
     pingRequest.respondedAt = new Date();
     await pingRequest.save();
 
-    // Send Stream notification for rejection
-    const client = getStreamClient();
-    if (client) {
-      const channel = client.channel('messaging', `notifications-${pingRequest.sender.toString()}`, {
-        members: [pingRequest.sender.toString()]
-      });
+    // Tell the sender over Stream. The ping is already rejected, so a Stream hiccup must not turn this into an error.
+    try {
+      const client = getStreamClient();
+      if (client) {
+        const channel = client.channel('messaging', `notifications-${pingRequest.sender.toString()}`, {
+          members: [pingRequest.sender.toString()]
+        });
 
-      await channel.sendEvent({
-        type: 'ping_rejected',
-        data: {
-          pingId: pingRequest._id.toString(),
-          timestamp: new Date().toISOString()
-        }
-      });
+        await channel.sendEvent({
+          type: 'ping_rejected',
+          data: {
+            pingId: pingRequest._id.toString(),
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+    } catch (streamError) {
+      console.error("Couldn't send the ping-rejected event:", streamError.message);
     }
 
     res.json({ message: "Ping rejected" });

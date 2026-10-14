@@ -1,29 +1,12 @@
+import { activityByDay, dayKey } from "./dates.util.js";
+
+/** One entry per day for the last 12 months, zero-filled. */
 export const generateHeatmapData = (activity) => {
-
-  const map = {};
-
-  activity.forEach((a) => {
-    map[a.date] = a.count;
-  });
-
+  const byDay = activityByDay(activity);
   const result = [];
-
-  const today = new Date();
-  const start = new Date();
-
-  start.setDate(today.getDate() - 365);
-
-  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-
-    const date = d.toISOString().slice(0, 10);
-
-    result.push({
-      date,
-      count: map[date] || 0
-    });
-
+  for (let i = 364; i >= 0; i--) {
+    const date = dayKey(-i);
+    result.push({ date, count: byDay.get(date) || 0 });
   }
-
   return result;
-
 };

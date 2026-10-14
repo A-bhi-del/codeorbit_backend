@@ -1,6 +1,5 @@
 import User from "../models/User.js";
 import { getGFGData } from "../services/gfgService.js";
-import { updateActivity } from "../utils/activity.util.js";
 
 export const connectGFG = async (req, res) => {
   try {
@@ -16,8 +15,6 @@ export const connectGFG = async (req, res) => {
 
     user.gfg = gfgData;
 
-    // Add initial activity
-    updateActivity(user, gfgData.score || 0);
 
     await user.save();
 

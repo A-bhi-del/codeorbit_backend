@@ -45,6 +45,17 @@ import jwt from "jsonwebtoken";
 import { admin } from "../config/firebase.js";
 import User from "../models/User.js";
 
+// Mark the user online. The UI polls notifications every 30s while a page is open, so this stays fresh.
+// Throttled to one write per user per 30s.
+const lastTouch = new Map();
+const touch = (userId) => {
+  const key = String(userId);
+  const now = Date.now();
+  if (now - (lastTouch.get(key) || 0) < 30_000) return;
+  lastTouch.set(key, now);
+  User.updateOne({ _id: userId }, { $set: { onlineStatus: true, lastSeen: new Date() } }).catch(() => {});
+};
+
 export const protect = async (req, res, next) => {
 
   const authHeader = req.headers.authorization;
@@ -82,6 +93,7 @@ export const protect = async (req, res, next) => {
 
       req.user = user._id;
       req.firebaseUser = decodedToken;
+      touch(user._id);
 
       return next();
 
@@ -94,6 +106,7 @@ export const protect = async (req, res, next) => {
       );
 
       req.user = decoded.userId;
+      touch(decoded.userId);
 
       return next();
 

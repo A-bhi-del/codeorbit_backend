@@ -15,7 +15,7 @@ export const getCurrentUserProfile = async (req, res) => {
       });
     }
 
-    const activeDays = user.activity?.length || 0;
+    const activeDays = (user.activity || []).filter((a) => a.count > 0).length;
     const consistencyScore = calculateConsistencyScore(user.activity || []);
 
     res.json({
@@ -37,7 +37,8 @@ export const getCurrentUserProfile = async (req, res) => {
           verified: user.leetcode.verified,
           totalSolved: user.leetcode.totalSolved,
           contestRating: user.leetcode.contestRating,
-          contestsPlayed: user.leetcode.contestsPlayed
+          contestsPlayed: user.leetcode.contestsPlayed,
+          difficultyBreakdown: (user.leetcode.difficultyBreakdown || []).map((d) => ({ name: d.name, value: d.value }))
         } : null,
         codeforces: user.codeforces ? {
           handle: user.codeforces.handle,
@@ -53,7 +54,14 @@ export const getCurrentUserProfile = async (req, res) => {
           followers: user.github.followers,
           publicRepos: user.github.publicRepos,
           totalStars: user.github.totalStars,
-          totalContributions: user.github.totalContributions
+          totalForks: user.github.totalForks,
+          following: user.github.following,
+          publicGists: user.github.publicGists,
+          pullRequestsTotal: user.github.pullRequestsTotal,
+          languages: (user.github.languages || []).slice(0, 5),
+          totalContributions: user.github.totalContributions,
+          issuesTotal: user.github.issuesTotal,
+          contributions: user.github.contributions
         } : null,
         codechef: user.codechef ? {
           username: user.codechef.username,
@@ -61,7 +69,8 @@ export const getCurrentUserProfile = async (req, res) => {
           highestRating: user.codechef.highestRating,
           stars: user.codechef.stars,
           globalRank: user.codechef.globalRank,
-          countryRank: user.codechef.countryRank
+          countryRank: user.codechef.countryRank,
+          problemsSolved: user.codechef.problemsSolved
         } : null,
         gfg: user.gfg ? {
           username: user.gfg.username,
@@ -98,7 +107,7 @@ export const getPublicProfile = async (req, res) => {
         message: "User not found"
       });
 
-    const activeDays = user.activity.length;
+    const activeDays = (user.activity || []).filter((a) => a.count > 0).length;
 
     const consistencyScore =
       calculateConsistencyScore(user.activity);
@@ -126,7 +135,12 @@ export const getPublicProfile = async (req, res) => {
 
         codeforces: user.codeforces,
 
-        github: user.github
+        // never send the stored OAuth token or the raw contribution calendar
+        github: user.github ? { ...user.github.toObject(), accessToken: undefined, contributionGraph: undefined } : null,
+
+        codechef: user.codechef,
+
+        gfg: user.gfg
 
       },
 

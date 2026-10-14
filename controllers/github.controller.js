@@ -89,6 +89,59 @@ export const githubOAuthCallback = async (req, res) => {
 };
 
 
+// Connect GitHub by username (public data, read with the server's token; no OAuth, nothing secret stored)
+const GITHUB_USERNAME = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
+
+export const connectGithub = async (req, res) => {
+  try {
+    const userId = req.user;
+    const username = String(req.body?.username || "").trim().replace(/^@/, "");
+
+    if (!GITHUB_USERNAME.test(username)) {
+      return res.status(400).json({
+        message: "Enter a valid GitHub username (letters, numbers and single hyphens, up to 39 characters)."
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.github?.username) {
+      return res.status(400).json({
+        message: `GitHub is already connected as @${user.github.username}. Disconnect it first to use a different account.`
+      });
+    }
+
+    const githubData = await fetchGithubProfile(username);
+
+    user.github = { ...githubData, connectedAt: new Date() };
+
+    if (!user.activity) user.activity = [];
+    if (Array.isArray(githubData.contributionGraph)) {
+      githubData.contributionGraph.forEach(week => {
+        (week.contributionDays || []).forEach(day => {
+          if (!day.contributionCount) return;
+          const existing = user.activity.find(a => a.date === day.date);
+          if (existing) existing.count += day.contributionCount;
+          else user.activity.push({ date: day.date, count: day.contributionCount });
+        });
+      });
+    }
+
+    await user.save();
+
+    res.json({
+      message: "GitHub connected successfully",
+      github: { ...githubData, contributionGraph: undefined, accessToken: undefined }
+    });
+  } catch (error) {
+    console.error("GitHub connect error:", error.message);
+    res.status(400).json({ message: error.message || "Failed to connect GitHub" });
+  }
+};
+
 // Disconnect GitHub
 export const disconnectGithub = async (req, res) => {
   try {
@@ -99,6 +152,15 @@ export const disconnectGithub = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Remove what GitHub contributed to the merged activity series (other platforms' counts stay)
+    (user.github?.contributionGraph || []).forEach(week => {
+      (week.contributionDays || []).forEach(day => {
+        const entry = user.activity?.find(a => a.date === day.date);
+        if (entry) entry.count = Math.max(0, entry.count - (day.contributionCount || 0));
+      });
+    });
+    if (user.activity) user.activity = user.activity.filter(a => a.count > 0);
 
     // Clear GitHub data
     user.github = undefined;
@@ -135,9 +197,16 @@ export const refreshGithubData = async (req, res) => {
 
     const accessToken = user.github.accessToken || null;
     console.log(`📡 Refreshing GitHub data for: ${user.github.username}`);
-    
+
+    // Remember what GitHub contributed per day last time, so we can swap exactly that out
+    // (the merged activity series also holds other platforms' counts, which must be left alone).
+    const previousByDate = new Map();
+    (user.github.contributionGraph || []).forEach(week => {
+      (week.contributionDays || []).forEach(d => previousByDate.set(d.date, d.contributionCount || 0));
+    });
+
     const githubData = await fetchGithubProfile(user.github.username, accessToken);
-    
+
     // Update GitHub data while preserving token and connection date
     user.github = {
       ...githubData,
@@ -145,35 +214,21 @@ export const refreshGithubData = async (req, res) => {
       connectedAt: user.github.connectedAt
     };
 
-    // Update activity
     if (!user.activity) {
       user.activity = [];
     }
 
-    if (githubData.contributionGraph && Array.isArray(githubData.contributionGraph)) {
-      // Clear old GitHub activities
-      user.activity = user.activity.filter(a => {
-        const date = new Date(a.date);
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        return date < oneYearAgo;
-      });
-
-      // Add new activities
+    if (Array.isArray(githubData.contributionGraph)) {
       githubData.contributionGraph.forEach(week => {
-        if (week.contributionDays && Array.isArray(week.contributionDays)) {
-          week.contributionDays.forEach(day => {
-            const existingActivity = user.activity.find(a => a.date === day.date);
-            if (existingActivity) {
-              existingActivity.count = day.contributionCount;
-            } else {
-              user.activity.push({
-                date: day.date,
-                count: day.contributionCount
-              });
-            }
-          });
-        }
+        (week.contributionDays || []).forEach(day => {
+          const previous = previousByDate.get(day.date) || 0;
+          const existing = user.activity.find(a => a.date === day.date);
+          if (existing) {
+            existing.count = Math.max(0, existing.count - previous + day.contributionCount);
+          } else if (day.contributionCount > 0) {
+            user.activity.push({ date: day.date, count: day.contributionCount });
+          }
+        });
       });
     }
 
@@ -209,18 +264,47 @@ export const getGithubStatus = async (req, res) => {
     }
 
     const isConnected = !!(user.github && user.github.username);
+    const g = user.github;
+
+    // Flatten the stored weekly calendar into a simple [{ date, count }] list for the UI
+    const days = [];
+    (g?.contributionGraph || []).forEach(week => {
+      (week.contributionDays || []).forEach(d => days.push({ date: d.date, count: d.contributionCount }));
+    });
 
     res.json({
       connected: isConnected,
       github: isConnected ? {
-        username: user.github.username,
-        avatar: user.github.avatar,
-        followers: user.github.followers,
-        following: user.github.following,
-        publicRepos: user.github.publicRepos,
-        totalStars: user.github.totalStars,
-        totalContributions: user.github.totalContributions,
-        connectedAt: user.github.connectedAt
+        username: g.username,
+        avatar: g.avatar,
+        followers: g.followers,
+        following: g.following,
+        publicRepos: g.publicRepos,
+        totalStars: g.totalStars,
+        totalForks: g.totalForks,
+        totalContributions: g.totalContributions,
+        connectedAt: g.connectedAt,
+        name: g.name,
+        bio: g.bio,
+        company: g.company,
+        location: g.location,
+        blog: g.blog,
+        twitter: g.twitter,
+        profileUrl: g.profileUrl,
+        githubCreatedAt: g.githubCreatedAt,
+        hireable: g.hireable,
+        publicGists: g.publicGists,
+        pullRequestsTotal: g.pullRequestsTotal,
+        issuesTotal: g.issuesTotal,
+        contributions: g.contributions,
+        languages: g.languages,
+        pinned: g.pinned,
+        topRepos: g.topRepos,
+        organizations: g.organizations,
+        lastFetched: g.lastFetched,
+        // true when this connection predates the richer data; the UI offers a refresh
+        needsRefresh: !g.lastFetched,
+        days
         // Don't send accessToken
       } : null
     });

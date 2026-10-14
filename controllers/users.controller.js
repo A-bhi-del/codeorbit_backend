@@ -119,7 +119,7 @@ export const getMutualFriends = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user;
-    const { displayName, username, bio, accountType, socialLinks, profileImage, bannerImage } = req.body;
+    const { displayName, username, bio, accountType, socialLinks, profileImage, bannerImage, photo } = req.body;
 
     const updateData = {};
 
@@ -144,6 +144,18 @@ export const updateProfile = async (req, res) => {
     if (socialLinks) updateData.socialLinks = socialLinks;
     if (profileImage) updateData.profileImage = profileImage;
     if (bannerImage) updateData.bannerImage = bannerImage;
+
+    // Profile photo: a small image sent as a data URL (the browser resizes it first), or null to remove it
+    if (photo === null) {
+      updateData.photoURL = null;
+      updateData.photoCustom = false;
+    } else if (photo !== undefined) {
+      if (typeof photo !== "string" || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(photo) || photo.length > 400_000) {
+        return res.status(400).json({ message: "That photo couldn't be used. Choose a PNG, JPEG or WebP image." });
+      }
+      updateData.photoURL = photo;
+      updateData.photoCustom = true;
+    }
 
     const user = await User.findByIdAndUpdate(
       userId,

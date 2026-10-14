@@ -126,8 +126,9 @@ export const googleAuth = async (req, res) => {
       await user.save();
     } else {
       // Update user info if needed
-      user.displayName = decodedToken.name;
-      user.photoURL = decodedToken.picture;
+      // keep what the user set in Edit profile: only fill these in from Google when they're empty
+      if (!user.displayName) user.displayName = decodedToken.name;
+      if (!user.photoCustom) user.photoURL = decodedToken.picture;
       
       // Ensure Stream user exists
       if (!user.streamUserId) {

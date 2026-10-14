@@ -1,6 +1,5 @@
 import User from "../models/User.js";
 import { fetchCodeforcesProfile, fetchCodeforcesSolvedProblems } from "../services/codeforces.service.js";
-import { updateActivity } from "../utils/activity.util.js";
 
 export const connectCodeforces = async (req, res) => {
 
@@ -18,8 +17,6 @@ export const connectCodeforces = async (req, res) => {
 
     user.codeforces = cfData;
 
-    // Add initial activity
-    updateActivity(user, cfData.solvedProblems || 0);
 
     await user.save();
 

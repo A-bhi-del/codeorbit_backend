@@ -1,6 +1,5 @@
 import User from "../models/User.js";
 import { getCodeChefData } from "../services/codechefService.js";
-import { updateActivity } from "../utils/activity.util.js";
 
 export const connectCodeChef = async (req, res) => {
   try {
@@ -33,9 +32,6 @@ export const connectCodeChef = async (req, res) => {
 
     user.codechef = codechefData;
 
-    // Add initial activity
-    console.log("📊 Updating activity data");
-    updateActivity(user, codechefData.rating || 0);
 
     console.log("💾 Saving user data to database");
     await user.save();

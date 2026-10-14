@@ -43,7 +43,27 @@ const githubSchema = new mongoose.Schema({
   totalContributions: Number,
   contributionGraph: Array,
   accessToken: String, // User's personal access token
-  connectedAt: Date
+  connectedAt: Date,
+  // --- richer profile data (fetched with the server token or the user's own) ---
+  name: String,
+  bio: String,
+  company: String,
+  location: String,
+  blog: String,
+  twitter: String,
+  profileUrl: String,
+  githubCreatedAt: Date,
+  hireable: Boolean,
+  publicGists: Number,
+  totalForks: Number,
+  pullRequestsTotal: Number,
+  issuesTotal: Number,
+  contributions: Object, // { commits, pullRequests, issues, reviews, repositories, private }
+  languages: Array, // [{ name, color, size, percent }]
+  pinned: Array, // [{ name, description, url, stars, forks, language, languageColor, pushedAt }]
+  topRepos: Array, // same shape, most-starred original repositories
+  organizations: Array, // [{ login, name, avatar, url }]
+  lastFetched: Date
 });
 
 const codechefSchema = new mongoose.Schema({
@@ -123,6 +143,8 @@ const userSchema = new mongoose.Schema({
 
   displayName: String,
   photoURL: String,
+  // true when the user uploaded their own photo (so signing in with Google must not replace it)
+  photoCustom: { type: Boolean, default: false },
   provider: {
     type: String,
     enum: ['local', 'google'],

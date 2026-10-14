@@ -52,7 +52,7 @@ export const getAIRecommendations = async (req, res) => {
 
     // Create user profile for AI analysis
     const userProfile = {
-      totalSolved: (user.leetcode?.totalSolved || 0) + (user.codeforces?.solvedProblems || 0),
+      totalSolved: (user.leetcode?.totalSolved || 0) + (user.codeforces?.solvedProblems || 0) + (user.codechef?.problemsSolved || 0) + (user.gfg?.problemsSolved || 0),
       leetcodeRating: user.leetcode?.contestRating,
       codeforcesRating: user.codeforces?.rating,
       languages: getPreferredLanguages(recentActivity),
@@ -202,7 +202,7 @@ export const getLearningPath = async (req, res) => {
 
     // Create user profile for context
     const userProfile = {
-      totalSolved: (user.leetcode?.totalSolved || 0) + (user.codeforces?.solvedProblems || 0),
+      totalSolved: (user.leetcode?.totalSolved || 0) + (user.codeforces?.solvedProblems || 0) + (user.codechef?.problemsSolved || 0) + (user.gfg?.problemsSolved || 0),
       leetcodeRating: user.leetcode?.contestRating,
       codeforcesRating: user.codeforces?.rating,
       platforms: Array.from(platforms),

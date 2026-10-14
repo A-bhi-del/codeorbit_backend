@@ -31,7 +31,7 @@ export const createStreamUser = async (userId, userData) => {
     await client.upsertUser({
       id: userId,
       name: userData.displayName || userData.username || 'User',
-      image: userData.photoURL || userData.profileImage,
+      image: [userData.photoURL, userData.profileImage].find((u) => typeof u === 'string' && !u.startsWith('data:')),
       role: 'user'
     });
 
@@ -301,7 +301,7 @@ export const ensureStreamUsers = async (userIds, usersData) => {
       return {
         id: userId,
         name: userData.displayName || userData.username || userData.email || 'User',
-        image: userData.photoURL || userData.profileImage,
+        image: [userData.photoURL, userData.profileImage].find((u) => typeof u === 'string' && !u.startsWith('data:')),
         role: 'user'
       };
     });

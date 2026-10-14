@@ -1,26 +1,15 @@
+import { activityByDay, dayKey, dayNum } from "./dates.util.js";
+
+/** Share of the last 30 days (today and the 29 before) that had any activity, as a whole percentage. */
 export const calculateConsistencyScore = (activity) => {
-
-  const today = new Date();
-  const last30 = new Date();
-
-  last30.setDate(today.getDate() - 30);
+  const first = dayNum(dayKey(-29));
+  const last = dayNum(dayKey(0));
 
   let activeDays = 0;
-
-  activity.forEach((a) => {
-
-    const activityDate = new Date(a.date);
-
-    if (activityDate >= last30 && activityDate <= today) {
-      activeDays++;
-    }
-
+  activityByDay(activity).forEach((count, key) => {
+    const n = dayNum(key);
+    if (count > 0 && n >= first && n <= last) activeDays++;
   });
 
-  // Cap at 30 days max and ensure it doesn't exceed 100%
-  const cappedActiveDays = Math.min(activeDays, 30);
-  const score = (cappedActiveDays / 30) * 100;
-
-  return Math.round(score);
-
+  return Math.round((activeDays / 30) * 100);
 };

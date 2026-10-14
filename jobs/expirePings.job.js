@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import PingRequest from "../models/PingRequest.js";
+import User from "../models/User.js";
 
 export const startExpirePingsCron = () => {
   // Run every minute to check for expired pings
@@ -20,6 +21,15 @@ export const startExpirePingsCron = () => {
       if (result.modifiedCount > 0) {
         console.log(`Expired ${result.modifiedCount} ping requests`);
       }
+
+      // Anyone we haven't heard from in 2 minutes is offline
+      await User.updateMany(
+        {
+          onlineStatus: true,
+          $or: [{ lastSeen: { $lt: new Date(Date.now() - 2 * 60 * 1000) } }, { lastSeen: null }]
+        },
+        { $set: { onlineStatus: false } }
+      );
     } catch (error) {
       console.error("Expire pings cron error:", error);
     }
