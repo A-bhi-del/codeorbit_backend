@@ -22,6 +22,9 @@ const roomSchema = new mongoose.Schema({
   },
   streamChannelId: String,
   canvasData: {
+    // Live whiteboard objects (strokes, erasures, text), in server-assigned order. See services/whiteboard.service.js.
+    items: [mongoose.Schema.Types.Mixed],
+    // Legacy: boards saved before the realtime whiteboard. Migrated into `items` on first load.
     strokes: [{
       type: {
         type: String,

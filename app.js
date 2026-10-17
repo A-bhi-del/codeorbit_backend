@@ -31,14 +31,16 @@ initializeFirebase();
 const app = express();
 
 // CORS configuration - CRITICAL: Must include PATCH method
+export const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "https://codeorbit-sage.vercel.app",
+  "https://codeorbit-git-main-arpit-srivastavas-projects-4aa240ca.vercel.app",
+  "https://codeorbit-9eqzasyrb-arpit-srivastavas-projects-4aa240ca.vercel.app"
+];
+
 const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://codeorbit-sage.vercel.app",
-    "https://codeorbit-git-main-arpit-srivastavas-projects-4aa240ca.vercel.app",
-    "https://codeorbit-9eqzasyrb-arpit-srivastavas-projects-4aa240ca.vercel.app"
-  ],
+  origin: allowedOrigins,
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],

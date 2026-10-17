@@ -215,7 +215,8 @@ export const sendPingRequestNotification = async (receiverId, pingData) => {
   }
 };
 
-export const sendPingAcceptedNotification = async (senderId, roomData) => {
+// Stream rejects server-side events that aren't attributed to a user, so `actorId` is mandatory.
+export const sendPingAcceptedNotification = async (senderId, roomData, actorId) => {
   try {
     const client = getStreamClient();
     if (!client) return null;
@@ -226,6 +227,7 @@ export const sendPingAcceptedNotification = async (senderId, roomData) => {
 
     await channel.sendEvent({
       type: 'ping_accepted',
+      user_id: actorId,
       data: {
         roomId: roomData.roomId,
         room: roomData,
@@ -235,7 +237,7 @@ export const sendPingAcceptedNotification = async (senderId, roomData) => {
 
     return true;
   } catch (error) {
-    console.error("Send ping accepted notification error:", error);
+    console.error("Send ping accepted notification error:", error.message);
     return false;
   }
 };
@@ -313,6 +315,24 @@ export const ensureStreamUsers = async (userIds, usersData) => {
   } catch (error) {
     console.error("[ENSURE USERS] Error:", error);
     console.error("[ENSURE USERS] Error details:", error.message);
+    return false;
+  }
+};
+
+export const sendPingRejectedNotification = async (senderId, actorId, data = {}) => {
+  try {
+    const client = getStreamClient();
+    if (!client) return null;
+
+    const channel = client.channel('messaging', `notifications-${senderId}`, { members: [senderId] });
+    await channel.sendEvent({
+      type: 'ping_rejected',
+      user_id: actorId,
+      data: { ...data, timestamp: new Date().toISOString() }
+    });
+    return true;
+  } catch (error) {
+    console.error("Send ping rejected notification error:", error.message);
     return false;
   }
 };

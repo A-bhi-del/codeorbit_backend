@@ -1,22 +1,37 @@
 import User from "../models/User.js";
 
+const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** How the current user relates to each person, so the UI can show Friends / Requested instead of a Follow button. */
+const withRelation = async (currentUserId, users) => {
+  const me = await User.findById(currentUserId).select("friends friendRequestsSent").lean();
+  const friends = new Set((me?.friends || []).map(String));
+  const requested = new Set((me?.friendRequestsSent || []).map(String));
+  return users.map((u) => ({
+    ...u,
+    relation: friends.has(String(u._id)) ? "friend" : requested.has(String(u._id)) ? "requested" : "none"
+  }));
+};
+
 // Search users
 export const searchUsers = async (req, res) => {
   try {
-    const { q } = req.query;
+    const q = typeof req.query.q === "string" ? req.query.q : "";
     const currentUserId = req.user;
 
     if (!q || q.trim().length === 0) {
       return res.json({ users: [] });
     }
 
+    // Escaped: the query is user text, not a pattern ("c++" or "(" would otherwise crash the search)
+    const pattern = escapeRegex(q.trim());
     const searchQuery = {
       _id: { $ne: currentUserId },
       $or: [
-        { username: { $regex: q, $options: 'i' } },
-        { displayName: { $regex: q, $options: 'i' } },
-        { uniqueId: { $regex: q, $options: 'i' } },
-        { email: { $regex: q, $options: 'i' } }
+        { username: { $regex: pattern, $options: 'i' } },
+        { displayName: { $regex: pattern, $options: 'i' } },
+        { uniqueId: { $regex: pattern, $options: 'i' } },
+        { email: { $regex: pattern, $options: 'i' } }
       ]
     };
 
@@ -25,7 +40,7 @@ export const searchUsers = async (req, res) => {
       .limit(20)
       .lean();
 
-    res.json({ users });
+    res.json({ users: await withRelation(currentUserId, users) });
   } catch (error) {
     console.error("Search users error:", error);
     res.status(500).json({ message: "Server error" });
@@ -75,7 +90,7 @@ export const getUserSuggestions = async (req, res) => {
     // Sort by follower count
     suggestions.sort((a, b) => (b.followers?.length || 0) - (a.followers?.length || 0));
 
-    res.json({ suggestions });
+    res.json({ suggestions: await withRelation(currentUserId, suggestions) });
   } catch (error) {
     console.error("Get user suggestions error:", error);
     res.status(500).json({ message: "Server error" });

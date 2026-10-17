@@ -121,3 +121,34 @@ export const protect = async (req, res, next) => {
   }
 
 };
+
+/**
+ * Resolve a bearer token (Firebase ID token or the server's own JWT) to a user id, for transports
+ * that don't go through Express middleware (Socket.IO). Returns null when the token is invalid.
+ */
+export const resolveUserId = async (token) => {
+  if (!token) return null;
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    let user = await User.findOne({ firebaseUid: decodedToken.uid });
+    if (!user) {
+      user = await User.create({
+        email: decodedToken.email,
+        firebaseUid: decodedToken.uid,
+        displayName: decodedToken.name,
+        photoURL: decodedToken.picture,
+        provider: "google"
+      });
+    }
+    touch(user._id);
+    return String(user._id);
+  } catch {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      touch(decoded.userId);
+      return String(decoded.userId);
+    } catch {
+      return null;
+    }
+  }
+};

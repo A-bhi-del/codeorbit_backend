@@ -22,6 +22,7 @@
     "multer": "^2.2.0",
     "node-cron": "^4.2.1",
     "puppeteer": "^24.39.1",
+    "socket.io": "^4.8.4",
     "stream-chat": "^8.40.0",
     "uuid": "^14.0.0"
   },

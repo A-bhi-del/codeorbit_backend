@@ -4,11 +4,15 @@ import { connectDB } from "./config/db.js";
 import { startStatsCron } from "./jobs/updateStats.job.js";
 import { startExpirePingsCron } from "./jobs/expirePings.job.js";
 import { initializeStreamChat } from "./services/stream.service.js";
+import { initializeWhiteboard } from "./services/whiteboard.service.js";
 
 const PORT = process.env.PORT || 5000;
 
 // Create HTTP server
 const server = createServer(app);
+
+// Realtime whiteboard shares the HTTP server (and port) with the REST API
+initializeWhiteboard(server);
 
 // Start server only after MongoDB connects
 const startServer = async () => {
