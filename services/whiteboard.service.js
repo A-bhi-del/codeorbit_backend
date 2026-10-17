@@ -19,6 +19,7 @@ import { allowedOrigins } from "../app.js";
  * - Live stroke chunks are relayed (volatile, never stored) for low latency; the stroke's final commit
  *   carries the complete point list, so a dropped chunk can never corrupt the stored board.
  * - Persistence is debounced and serialised per room.
+ * - Call presence (who is in the video call) is tracked here so the other participant can be told to join.
  */
 
 const MAX_ITEMS = 4000;
@@ -34,6 +35,7 @@ const boards = new Map();
 let io = null;
 
 const roomKey = (roomId) => `wb:${roomId}`;
+
 const num = (v, lo, hi, d) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 const str = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
 const colour = (v) => (typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : "#1a1814");
@@ -41,6 +43,7 @@ const colour = (v) => (typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v) ? 
 class Board {
   constructor(roomId, participants, items) {
     this.roomId = roomId;
+    this.call = new Map(); // socketId -> { userId, name }
     this.participants = new Set(participants);
     this.items = items;
     this.byId = new Map(items.map((i) => [i.id, i]));
@@ -139,6 +142,12 @@ const cleanPoints = (pts) => {
   return out;
 };
 
+const callUsers = (board) => {
+  const seen = new Map();
+  for (const u of board.call.values()) seen.set(u.userId, u.name);
+  return [...seen].map(([id, name]) => ({ id, name }));
+};
+
 /* ------------------------------ locks ------------------------------ */
 
 const releaseLock = (board, textId, { silent = false } = {}) => {
@@ -224,7 +233,7 @@ export const initializeWhiteboard = (httpServer) => {
         socket.data.name = me?.displayName || me?.username || "Someone";
 
         const locks = [...board.locks].map(([id, l]) => ({ id, userId: l.userId, name: l.name }));
-        reply({ ok: true, items: board.items, locks, userId, name: socket.data.name });
+        reply({ ok: true, items: board.items, locks, userId, name: socket.data.name, callUsers: callUsers(board) });
       },
       { needsBoard: false }
     );
@@ -334,6 +343,20 @@ export const initializeWhiteboard = (httpServer) => {
       reply({ ok: true });
     });
 
+    /* ---- video call presence ---- */
+
+    const broadcastCall = () => io.in(room()).emit("call:state", { users: callUsers(board) });
+    on("call:join", (_p, reply) => {
+      board.call.set(socket.id, { userId, name: socket.data.name });
+      broadcastCall();
+      reply({ ok: true });
+    });
+    on("call:leave", (_p, reply) => {
+      board.call.delete(socket.id);
+      broadcastCall();
+      reply({ ok: true });
+    });
+
     on("clear", (_p, reply) => {
       board.items.length = 0;
       board.byId.clear();
@@ -345,6 +368,7 @@ export const initializeWhiteboard = (httpServer) => {
 
     socket.on("disconnect", () => {
       if (!board) return;
+      if (board.call.delete(socket.id)) io.in(room()).emit("call:state", { users: callUsers(board) });
       for (const [textId, lock] of board.locks) {
         if (lock.socketId === socket.id) releaseLock(board, textId);
       }
