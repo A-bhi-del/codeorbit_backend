@@ -44,6 +44,7 @@ class Board {
   constructor(roomId, participants, items) {
     this.roomId = roomId;
     this.call = new Map(); // socketId -> { userId, name }
+    this.present = new Map(); // socketId -> { userId, name }: who currently has the room open
     this.participants = new Set(participants);
     this.items = items;
     this.byId = new Map(items.map((i) => [i.id, i]));
@@ -142,11 +143,14 @@ const cleanPoints = (pts) => {
   return out;
 };
 
-const callUsers = (board) => {
+const uniqueUsers = (sockets) => {
   const seen = new Map();
-  for (const u of board.call.values()) seen.set(u.userId, u.name);
+  for (const u of sockets.values()) seen.set(u.userId, u.name);
   return [...seen].map(([id, name]) => ({ id, name }));
 };
+const callUsers = (board) => uniqueUsers(board.call);
+/** People with the room open right now (a user with two tabs counts once, and stays until both close). */
+const presenceUsers = (board) => uniqueUsers(board.present);
 
 /* ------------------------------ locks ------------------------------ */
 
@@ -232,8 +236,11 @@ export const initializeWhiteboard = (httpServer) => {
         const me = await User.findById(userId).select("displayName username").lean();
         socket.data.name = me?.displayName || me?.username || "Someone";
 
+        board.present.set(socket.id, { userId, name: socket.data.name });
+        io.in(room()).emit("presence:state", { users: presenceUsers(board) });
+
         const locks = [...board.locks].map(([id, l]) => ({ id, userId: l.userId, name: l.name }));
-        reply({ ok: true, items: board.items, locks, userId, name: socket.data.name, callUsers: callUsers(board) });
+        reply({ ok: true, items: board.items, locks, userId, name: socket.data.name, callUsers: callUsers(board), presenceUsers: presenceUsers(board) });
       },
       { needsBoard: false }
     );
@@ -369,6 +376,7 @@ export const initializeWhiteboard = (httpServer) => {
     socket.on("disconnect", () => {
       if (!board) return;
       if (board.call.delete(socket.id)) io.in(room()).emit("call:state", { users: callUsers(board) });
+      if (board.present.delete(socket.id)) io.in(room()).emit("presence:state", { users: presenceUsers(board) });
       for (const [textId, lock] of board.locks) {
         if (lock.socketId === socket.id) releaseLock(board, textId);
       }
